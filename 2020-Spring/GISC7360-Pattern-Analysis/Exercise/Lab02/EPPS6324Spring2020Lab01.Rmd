@@ -1,0 +1,193 @@
+---
+title: 'Lab01 : Data manipulation and `ggplot`'
+author: "Yalin Yang"
+date: "`r Sys.Date()`"
+output:
+  word_document:
+    toc: no
+    toc_depth: '3'
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  html_document:
+    number_sections: no
+    toc: yes
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, width=7.2)
+library(tidyverse)
+library("gcookbook")
+library(nycflights13)
+```
+
+
+# Task 1: Statistical Graphs (3 pts)
+
+The following graphs are reproductions from the [R Graphics Cookbook, 2e](https://r-graphics.org/index.html). One of the objectives of task 1 is that you visit the __R Graphics Cookbook__ and explore the graphs on display there. 
+
+Study the sections associated with the graphs which are displayed in task 1.1 to 1.6. Its sections document how these graphs were build. For _educational purposes_ you may want to read the associated documentation of the employed functions and experiment with their options.
+
+You job in task 1 is to reproduce these graphs and show the code, which generated them. The data used in the __R Graphics Cookbook__ are available in `library("gcookbook")`.
+
+## Task 1.1 (0.5 pts)
+
+```{r}
+climate_sub <- climate %>% filter(Source == "Berkeley" & Year >= 1900) %>% 
+  mutate(pos=Anomaly10y >= 0)
+
+ggplot(climate_sub, aes(x=Year, y=Anomaly10y, fill=pos)) +
+  geom_col(position="identity", colour="black", size=0.25) +
+  scale_fill_manual(values = c("#CCEEFF","#FFDDDD"), guide=FALSE)
+```
+
+
+## Task 1.2 (0.5 pts)
+
+```{r}
+library(MASS)
+biopsy_mod <- biopsy %>% mutate(classn = recode(class, benign=0, malignant=1))
+
+ggplot(biopsy_mod, aes(x=V1, y=classn))+
+  geom_point(position=position_jitter(width=0.3, height=0.06), alpha=0.4, shape=21, size=1.5)+
+  stat_smooth(method=glm, method.args=list(family=binomial))
+```
+
+## Task 1.3 (0.5 pts)
+
+```{r}
+ggplot(heightweight, aes(x=sex, y=heightIn)) +
+  geom_boxplot(outlier.colour = NA, width= 0.4)+
+  geom_dotplot(binaxis = "y", binwidth = 0.5, stackdir = "center", fill=NA)
+```
+
+## Task 1.4 (0.5 pts)
+
+```{r}
+ggplot(faithful, aes(x=eruptions, y=waiting))+
+  geom_point()+
+  stat_density2d(aes(alpha=..density..), geom="tile", contour = FALSE)
+```
+
+## Task 1.5 (0.5 pts)
+
+```{r message=FALSE, warning=FALSE}
+library(scales)
+ggplot(heightweight, aes(x=ageYear, y=heightIn, colour=weightLb))+
+  geom_point(size=3)+
+  scale_colour_gradientn(colours = c("darkred","orange","yellow","white"))
+```
+
+
+## Task 1.6 (0.5 pts)
+
+For this map you would need to setup the data with
+```{r eval=FALSE, echo=TRUE, message=FALSE, warning=FALSE}
+library(maps)
+library(mapproj)
+states_map <- map_data("state")
+crimes <- data.frame(state=tolower(rownames(USArrests)),USArrests)
+crime_map <- merge(states_map, crimes, by.x="region", by.y="state")
+
+qa <- quantile(crimes$Assault, seq(0,1,by=0.2))
+crimes$Assault_q <- cut(crimes$Assault, qa, labels=c("0-20%","20-40%","40-60%","60-80%","80-100%"),
+                       include.lowest = TRUE)
+pal <- colorRampPalette(c("#559999","grey80","#BB650B"))(5)
+ggplot(crimes, aes(map_id=state, fill=Assault_q))+
+  geom_map(map=states_map, color="black")+
+  scale_fill_manual(values=pal)+
+  expand_limits(x=states_map$long, y=states_map$lat)+
+  coord_map("polyconic")+
+  labs(fill="Assault Rate\nPercentile")
+```
+
+# Task 2: Grouped Data (1 pt)
+
+Continue with the `flights` data in `library(nycflights13)`. Use the `str( )` and `View( )` functions to evaluated the data structure. To best understand how grouping of records works one needs to look at the resulting data structure.
+
+## Task 2.1 (0.2 pts)
+
+Describe the organization of the original `flights` data with respect to its variables and the nesting of the records according to `year`, `month` and `day`.
+
+```{r}
+library(nycflights13)
+str(flights)
+```
+
+## Task 2.2 (0.5 pts)
+
+Which __attributes__ are added to the _tibble_ `flights_ymd` once the data are grouped? Use the grouping code:
+```{r, echo=TRUE, eval=FALSE}
+flights_ymd <- flights %>% group_by(year, month, day)
+head(flights_ymd)
+```
+
+How do subsequent function calls know which set of observations belongs to which group?
+
+**The function groups those records with the same value on year, month and day into one set.**
+
+## Task 2.3 (0.2 pts)
+
+Describe how the grouping structure of `flights_ym` changes after executing the code:
+```{r, echo=TRUE, eval=FALSE}
+flights_ym <- summarize(flights_ymd, flights=n())
+str(flights_ym)
+```
+**It summarizes the grouped table based on a different date (year, month and day), and count how many records in each set.**
+
+## Task 2.4 (0.1 pts)
+
+What does the `ungroup` function do to the data structure of `flights_new`. Evaluate the output of the code:
+
+```{r, echo=TRUE, eval=FALSE}
+flights_new <- flights_ymd  %>% ungroup()
+```
+
+**Transform a grouped table to an ordinary one (no more groups information).**
+
+# Task 3: Sequential, Nested or Piped Execution of Commands (1 pt)
+
+## Task 3.1 (0.6 pts)
+Create a simple example using real data and function calls of a sequence of commands. Show for your example for the three different implementations:
+
+* Sequential:
+  ```
+      y <- f(x)
+      z <- g(y)
+  ```
+
+* Nested:
+  ```
+     z <- g(f(x))
+  ```
+
+* Piped:
+  ```
+     z <- x %>% f( ) %>% g( )
+  ```
+
+Each implementation should give identical results `z`.   
+```{r}
+x <- 16
+y <- sqrt(x)
+z <- sqrt(y)
+z
+```
+```{r}
+z <- sqrt(sqrt(x))
+z
+```
+```{r}
+z <- x %>% sqrt( ) %>% sqrt( )
+z
+```
+
+## Task 3.2 (0.4 pts)
+Discuss the practical advantages and disadvantages of each implementation.
+
+**1.When you need the keep the value of Intermediate variable, could use Sequential**
+
+**2.If you do not need the Intermediate variable, and two functions do not need many arguments, using Nested programming could save a lot of space.**
+
+**3.The same situation with the second scenario，but two functions need plenty of input arguments, the second style would look massive in this time. So we could choose the Piped style here.**

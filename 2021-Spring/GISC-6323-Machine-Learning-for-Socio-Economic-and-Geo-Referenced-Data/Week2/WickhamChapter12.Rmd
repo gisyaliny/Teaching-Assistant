@@ -1,0 +1,164 @@
+---
+title: "Chapter 12: Tidy Data"
+author: "Michael Tiefelsdorf"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: 
+          collapsed: false
+    number_sections: true          
+    toc_depth: 3 
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo=TRUE, include=TRUE, highlight=TRUE, tidy=TRUE, fig.width=7.2)
+library(tidyverse)
+```
+
+
+# Introduction
+
+The objective of this chapter is to show how to _organize_ the data in a _tidy_ representation. This data representation is the preferred format for subsequent data analyses.
+
+# Examples of data organization
+The data for 3 observations and four variables, i.e., `country`, `year`,  `population` and `cases`, can be organized in different ways:
+
+```{r tables}
+table1
+table2
+table3
+table4a
+table4b
+```
+
+All tables contain the same information. How is this information organized in each table?
+
+Only `table1` is a tidy `tibble` in the sense that 
+
+1. Each _variable_ has its own _column_.
+
+1. Each _observation_ has its own _row_.
+
+1. Each data _value_ has its own _cell_.
+
+```{r tidy-structure, echo = FALSE, out.width = "100%"}
+
+knitr::include_graphics("tidy-1.png")
+
+```
+
+Tidy `tibble`s allow to perform _vectorized_ operations:
+```{r vectOp}
+table1 %>% mutate(rate= cases/population * 100000) # Disease rate per 100,000 persons
+
+table1 %>% count(year, wt=cases, name="NumOfCases")
+```
+
+# Spreading and gathering (Pivoting)
+When data are not tidy they may suffer from one of two problems or both problems together:
+
+* More than one observation per record.
+
+* An observation spread across several records.
+
+## Gathering (longer)
+The tables 4a and 4b merge different observation into one row. 
+
+```{r tidy-gather, echo = FALSE, out.width = "100%"}
+knitr::include_graphics("tidy-9.png")
+```
+
+```{r}
+tidy4a <- table4a %>% 
+  pivot_longer(c(`1999`, `2000`), names_to = "year", values_to = "cases")
+tidy4a
+
+tidy4b <- table4b %>% 
+  pivot_longer(c(`1999`, `2000`), names_to = "year", values_to = "population")
+tidy4b
+
+tableLong <- left_join(tidy4a, tidy4b) %>%  mutate("year" = as.integer(year))
+
+tableLong  # year now an integer number
+```
+
+Note that "1999" and "2000" are nonsyntactic variable names that must be surrounded by backticks.
+
+## Spreading (wider)
+`pivot_wider()` is the opposite of `pivot_longer()`. It is used when an observation is scattered across multiple rows.
+
+```{r tidy-spread, echo = FALSE, out.width = "100%", }
+knitr::include_graphics("tidy-8.png")
+```
+
+```{r}
+table2
+table2 %>%
+    pivot_wider(names_from = type, values_from = count)
+```
+
+# Seperating and uniting
+Separating and uniting can also be achieved with `mutate` operations.
+
+## Seperating
+The problem in `table3` is that the column `rate`, which are combined as a character string seperated by `/`, contains two variables (`cases` and `population`). To fix this problem, we'll need the `separate()` function. 
+
+```{r}
+table3
+table3 %>% 
+  separate(rate, into = c("cases", "population"), sep = "/", convert = TRUE)
+
+```
+
+## Uniting
+Uniting allows to generate a new variable by _character_ merging several variables.
+
+```{r}
+table5
+
+table5 %>% unite(yr4digits, century, year, sep="") %>% mutate("yr4digits" = as.integer(yr4digits))
+
+```
+
+# Missing values
+There are three types of missing values `NA`:
+
+* _Explicitly random_, i.e. flagged with `NA`, e.g., fourth quarter of 2015 below.
+
+* _Explicitly structural_, i.e. flagged with `NA`. E.g., if a home does not have a garage the garage's square footage must be `NA`
+
+* _Implicitly_, i.e. simply not present in the data. Mostly whole records are missing, e.g., first quarter of of 2016 below.
+
+Examples:
+
+```{r}
+
+stocks <- tibble(
+  year   = c(2015, 2015, 2015, 2015, 2016, 2016, 2016),
+  qtr    = c(   1,    2,    3,    4,    2,    3,    4),
+  return = c(1.88, 0.59, 0.35,   NA, 0.92, 0.17, 2.66)
+)
+stocks <- stocks %>% mutate("year" = as.integer(year), "qtr" = as.integer(qtr))
+stocks
+```
+
+```{r}
+stocksWide <- stocks %>% 
+              pivot_wider(names_from = year, values_from = return)
+
+stocksWide
+  
+stocksWide %>%  pivot_longer(
+               cols = c(`2015`, `2016`), names_to = "year", values_to = "return", values_drop_na = TRUE
+  )
+```
+
+To maintain records in their logical sequence by allowing for `NA`'s is the function `complete`:
+```{r}
+stocks %>% 
+  complete(year, qtr)
+```
+
+# Comments
+Rational data-bases are always messy because they consist by design of several related data frames. However, their format has the substantial advantage that it saves storage space and encapsulates related data into single data frames.

@@ -1,0 +1,60 @@
+```{r fig.height=7, fig.width=12}
+hprice <- foreign::read.dta("http://fmwww.bc.edu/ec-p/data/wooldridge/hprice2.dta")
+car::scatterplotMatrix(~price+nox+dist+stratio+rooms, data=hprice,main="Variables impacting the price",col = "black",
+smooth=list(span = 0.35,lty.smooth=1,col.smooth="red",col.var="red"),regLine=list(col="green"))
+```
+
+```{r}
+mod1 <- lm(price~nox+dist+stratio+rooms, data=hprice)
+summary(mod1)
+```
+
+```{r fig.height=5, fig.width=5}
+car::scatterplot(residuals(mod1)~nox, data=hprice,main="Variables impacting the price",col = "black",smooth=list(span = 0.35, lty.smooth=1,col.smooth="red", col.var="red"), regLine=list(col="green"))
+car::scatterplot(residuals(mod1)~dist, data=hprice,main="Variables impacting the price",col = "black",smooth=list(span = 0.35, lty.smooth=1,col.smooth="red", col.var="red"), regLine=list(col="green"))
+car::scatterplot(residuals(mod1)~stratio, data=hprice,main="Variables impacting the price",col = "black",smooth=list(span = 0.35, lty.smooth=1,col.smooth="red", col.var="red"), regLine=list(col="green"))
+car::scatterplot(residuals(mod1)~rooms, data=hprice,main="Variables impacting the price",col = "black",smooth=list(span = 0.35, lty.smooth=1,col.smooth="red", col.var="red"), regLine=list(col="green"))
+
+```
+
+
+
+```{r}
+cor(residuals(mod1),hprice$nox)
+cor(residuals(mod1),hprice$dist)
+cor(residuals(mod1),hprice$stratio)
+cor(residuals(mod1),hprice$rooms)
+```
+
+
+
+
+
+```{r}
+library(effects)
+mod2 <- lm(price~nox+dist+stratio+rooms+I(rooms^2), data=hprice)
+summary(mod2)
+```
+
+```{r}
+car::scatterplot(residuals(mod2)~rooms, data=hprice,col = "black",smooth=list(span = 0.35, lty.smooth=1,col.smooth="red", col.var="red"), regLine=list(col="green"))
+```
+
+
+
+```{r}
+lm.03.eff <- effects::allEffects(mod2,xlevels=list(rooms=3:max(hprice$rooms)))
+plot(lm.03.eff, "rooms", main="Non-linear effect of # of rooms")
+```
+
+```{r}
+df <- foreign::read.spss("Concord1.sav")
+car::scatterplotMatrix(~water81+income+educat, data=df,main="Variables impacts",col = "black",
+smooth=list(span = 0.35,lty.smooth=1,col.smooth="red",col.var="red"),regLine=list( col="green"))
+```
+```{r}
+mod<- lm(water81 ~ income + educat, data=df)
+summary(mod)
+```
+
+

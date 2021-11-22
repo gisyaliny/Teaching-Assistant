@@ -1,0 +1,145 @@
+---
+title: "Exercise 01 "
+author: "Yalin Yang"
+date: "`r Sys.Date()`"
+output:
+  word_document:
+    toc: no
+    toc_depth: '3'
+  html_notebook:
+    toc: yes
+    toc_float: yes
+    fig_width: 9
+    fig_height: 6
+  pdf_document:
+    toc: no
+    toc_depth: '3'
+---
+
+## Task2
+
+### a 
+
+```{r}
+load('MyPower.RData')
+```
+
+
+### b
+
+```{r}
+library(foreign)
+Concord <- read.spss('Concord1.sav', to.data.frame=TRUE)
+```
+
+### c
+
+```{r}
+CPS1985 <- read.dbf('CPS1985.dbf')
+```
+
+### d
+
+```{r}
+data(Mroz, package="carData") 
+```
+
+## Task 3
+
+### a
+
+```{r}
+# MyPower$DailykWh <- MyPower$DaysBill / MyPower$kWhBill
+MyPower$DailykWh <- MyPower$kWhBill/ MyPower$DaysBill 
+```
+
+### b
+
+```{r}
+MyPowerNames <- names(MyPower)
+(length(MyPowerNames))
+(MyPowerNames[4:6])
+```
+
+```{r}
+sapply(MyPower, is.factor) 
+```
+
+### c
+
+```{r}
+str(MyPower)
+?str
+```
+
+
+### e
+
+```{r}
+plot(DailykWh~SeqID, data=MyPower)
+abline( lm(DailykWh~SeqID, data=MyPower) )
+```
+```{r}
+lm(DailykWh~SeqID, data=MyPower)
+```
+
+### f
+```{r fig.height=6, fig.width=9}
+plot(DailykWh~Month, data=MyPower)
+```
+
+### g
+```{r}
+subset(MyPower[,4:6],MyPower$Month=="JAN")
+```
+
+```{r}
+MyPower[MyPower$Month=="JAN",c("MinTemp","AveTemp","MaxTemp")]
+```
+
+
+### h
+```{r}
+head(MyPower)
+tail(MyPower)
+```
+
+```{r}
+summary(MyPower)
+```
+
+```{r}
+summary(lm(DailykWh~SeqID, data=MyPower))
+```
+
+```{r}
+?summary.lm
+?summary.data.frame
+```
+
+```{r}
+    x <- c(1,3,5,7,9,NA)
+    x * 2; x + 2
+    y <- seq(0,2, by=1); x * y
+    z <- rep(c(1,2),3); x * z
+
+```
+
+```{r}
+x[c(T,T,T,T,T,F)] 
+```
+
+
+```{r}
+    myMean <- function(x){
+      x <- na.omit(x)
+      sum(x)/length(x)
+    }
+    myMean(x)
+
+```
+
+```{r}
+mean(na.omit(x))
+```
+

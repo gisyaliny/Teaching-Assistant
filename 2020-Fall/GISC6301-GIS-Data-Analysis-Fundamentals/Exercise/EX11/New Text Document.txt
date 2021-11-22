@@ -1,0 +1,5 @@
+pwr::pwr.t.test(d = 0.25, sig.level = 0.05, n=36,type = ‘one.sample’,alternative = “two.sided”)
+pwr::pwr.t.test(d = 0.25, sig.level=0.01, n=36,type = ‘one.sample’,alternative = “two.sided”)
+pwr::pwr.t.test(power = 0.5, sig.level=0.01, n=36,type = ‘one.sample’,alternative = “two.sided”)
+pwr::pwr.t.test(power = 0.5, sig.level=0.01, n=144,type = ‘one.sample’,alternative = “two.sided”)
+pwr::pwr.t.test(power = 0.99, sig.level=0.01,d = 0.50,type = ‘one.sample’, alternative = “two.sided”)

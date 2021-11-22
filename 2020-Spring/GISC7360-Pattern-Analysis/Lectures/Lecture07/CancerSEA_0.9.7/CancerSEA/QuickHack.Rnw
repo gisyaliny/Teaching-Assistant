@@ -1,0 +1,33 @@
+\documentclass{article}
+
+\begin{document}
+
+\section*{Estimation of intercept $\beta_0$ and slope $\beta_1$}
+The subsequent equations are used to {\it estimate} the intercept $\hat{\beta_0}$ and the slope $\hat{\beta_1}$ of a population regression model $y_i=\beta_0+\beta_1 \cdot x_i+\epsilon_i$:
+\begin{eqnarray}
+  \hat{\beta_1} & = & \frac{ n \cdot \sum_{i=1}^{n} x_i\cdot y_i - \sum_{i=1}^{n}x_i \cdot \sum_{i=1}^{n}y_i }
+                           { n \cdot \sum_{i=1}^{n} x_i^2 - \left( \sum_{i=1}^{n} x_i \right)^2 }   
+  \\
+  \hat{\beta_0} & = & \bar{y} - \hat{\beta_1} \cdot \bar{x}
+\end{eqnarray}
+
+Code below generates a set of $n=50$ random normally distributed numbers for the independent variable $x_i$ and the dependent variable $y_i$ using the equation $y_i=1+2 \cdot x_i+\epsilon_i$:
+<<RandNum>>=
+x <- rnorm(50)
+y <- 1 + 2*x + rnorm(50,sd=0.2)
+@
+\noindent Note that the expected intercept is $\beta_0=1$ and the expected slope is $\beta_1=2$. The regression disturbances have a standard deviation of $\sqrt{Var(\epsilon)}=0.2$
+
+Subsequently the model is estimated with R's {\texttt lm( )} function and the summary statistics of the estimated model are listed:
+<<EstMod>>=
+my.lm <- lm(y~x)
+summary(my.lm)
+@
+\pagebreak
+The data can be displayed in a scatter-plot and the estimated regression line can be superimposed on top of it. The R commands generating the scatter-plot are shown here:
+<<PlotMod, fig.cap="Scatterplot and Regression Line">>=
+plot(y~x, pch=16, col="salmon")
+abline(my.lm, col="red")
+@
+
+\end{document}

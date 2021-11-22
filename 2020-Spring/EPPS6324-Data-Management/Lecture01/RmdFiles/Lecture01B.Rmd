@@ -1,0 +1,63 @@
+---
+title: "Introduction to R Markdown"
+author: "Michael Tiefelsdorf"
+date: "1/21/2020"
+#date: "`r Sys.Date()`"
+# See https://bookdown.org/yihui/rmarkdown/html-document.html for additional options
+output: 
+  html_document:
+    toc: true
+    toc_float: 
+          collapsed: false
+    number_sections: true          
+    toc_depth: 3  
+bibliography: Lecture01.bib
+params:
+  title: "Gas Milage by Vehicle Weight"
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, prompt = TRUE, comment = "R>", cache = FALSE)
+```
+
+# R Markdown Formatting
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>. Please systematically explore this link and its sub-links.
+
+Direct help on R Markdown's key formatting commands is directly available from RStudio's online help `Help > Markdown Quick Reference`. An extended overview is available from the  [cheatsheet](https://github.com/rstudio/cheatsheets/raw/master/rmarkdown-2.0.pdf).
+
+## Including R Code and Output
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. The keyboard short cut to insert a code chunk template is __Cntr-Alt-I__. You can embed a _display style_ R code chunk like this:
+
+```{r mtcars}
+summary(mtcars)
+```
+Another option is to include _inline code_ that performs calculations within the text and shows its results. For instance, the number of observations in the `cars` data-frame is `r nrow(cars)`.
+
+## Including Plots
+You can also embed plots, for example:
+
+```{r milage, echo=FALSE}
+plot(mpg~wt, data=mtcars, main=params$title)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot. Note the use of the parameter `params$title` as substitute for the plot title.
+
+## Including References
+Markdown examples in R package vignettes can be found in the package `DallasTracts`, which can be downloaded from the [ThinkR website](http://thinkr.spatialfiltering.com/Downloads/DallasTracts_0.2.2.tar.gz) and installed with the R command
+```{r DallasTractInstall, eval=FALSE}
+install.packages("http://thinkr.spatialfiltering.com/Downloads/DallasTracts_0.2.2.tar.gz", repos=NULL)
+```
+The first vignette (@Tief2019a) provides an example to evaluate the potential presences of food deserts in Dallas County and the second vignette (@Tief2019b) performs a hierarchical cluster analysis under a spatial contiguity constraint to identify homogeneous market areas in Dallas County.
+
+Note that the references to both vignettes are stored in the document `Lecture01.bib`. These can be elegantly managed with the open source bibliography reference manager __JabRef__ (See <https://www.jabref.org/>).
+
+The list of references is automatically generated at the end of the Markdown document. Therefore, the document should end with as simple section heading `# References`.
+
+## Including Equations
+Equations can be incorporated into the Markdown document by using $\LaTeX$ style syntax. A basic overview on how to typeset equations with $\LaTeX$ is available in its [cheatsheet](https://wch.github.io/latexsheet/) An inline equation is framed by a pair of dollar-signs. For example the _sample_ arithmetic mean is $\bar{x}=\frac{\sum_{i=1}^n x_i}{n}$. 
+
+In contrast, a display equation is centered on its individual line within a paragraph. It is framed by a pair of double dollar-signs. For example the _population_ variance is defined by: $$\sigma^2=\frac{\sum_{i=1}^n (x_i - \mu)^2}{n-1}$$
+
+# References

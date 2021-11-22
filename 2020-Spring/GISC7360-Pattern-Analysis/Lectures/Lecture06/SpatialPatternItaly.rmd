@@ -1,0 +1,265 @@
+---
+title: 'Script: SpatialACItaly'
+author: "Michael Tiefelsdorf"
+date: "3/29/2020"
+output: 
+  html_document:
+    toc: true
+    toc_float: 
+          collapsed: false
+    number_sections: true          
+    toc_depth: 3  
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, include=TRUE, highlight=TRUE, tidy=TRUE, fig.width=6)
+
+rm(list=ls(all=TRUE))
+library(car); library(maptools); library(spdep); library(TexMix)
+```
+
+# Import data
+Import the shape-files and run basic diagnostics.
+```{r import}
+setwd("G:\\UTD_Classes\\2020Spring\\GISC7360_Pattern_Analysis\\Lecture06\\Italy")
+##
+## Read Poly Shapefiles (readShapePoly in library maptools)
+##
+getinfo.shape("Provinces.shp")
+neig.shp <- rgdal::readOGR(dsn=getwd(), layer="Neighbors", integer64="warn.loss")
+prov.shp <- rgdal::readOGR(dsn=getwd(), layer="Provinces", integer64="warn.loss")
+summary(prov.shp)
+
+proj4string(prov.shp)                                    # map projection
+prov.centroid <- coordinates(prov.shp)                   # Get province centroids
+prov.bbox <- bbox(prov.shp)                              # province bounding box for map region
+```
+
+# Gradient map of `TOTFERTRAT` and bi-polar map of `lm(TOTFERTRAT~1)`
+Gradient map:
+```{r gradmap}
+plot(neig.shp,axes=T,col=grey(0.9),border="white",       # first background (axes=T adds lat/long frame)
+     xlim=prov.bbox[1,],ylim=prov.bbox[2,])              # within bounding box
+mapColorRamp(prov.shp$TOTFERTRAT, prov.shp, breaks=8,    # second add map
+              map.title="Spatial Pattern of Fertility Rate",
+              legend.title="Fertility Rate", 
+              legend.cex=0.7, add.to.map=T)
+
+```
+
+Variation around the mean:
+```{r}
+varMean <- residuals(lm(TOTFERTRAT~1, data=prov.shp))
+plot(neig.shp,axes=T,col=grey(0.9),border="white",
+     xlim=prov.bbox[1,],ylim=prov.bbox[2,])               # first background
+mapBiPolar(varMean, prov.shp,                             # second regression residuals
+            neg.breaks=5, pos.breaks=5, break.value=0.0, 
+            map.title="Fertility Variation Around the Mean",
+            legend.title="Residuals", 
+            legend.cex=0.7, add.to.map=T)
+```
+
+# Basic regression model
+```{r basicreg}
+## Regression model for fertility including model diagnostics
+scatterplotMatrix(~TOTFERTRAT+ILLITERRAT+FEMMARAGE+DIVORCERAT+TELEPERFAM, data=prov.shp,
+                   smooth=list(span = 0.35, lty.smooth=1, col.smooth="red", col.var="salmon"),
+                   regLine=list(col="green"))
+
+fert.lm <- lm(TOTFERTRAT~ILLITERRAT+FEMMARAGE+DIVORCERAT+TELEPERFAM, data=prov.shp)
+summary(fert.lm,corr=F)
+vif(fert.lm)
+
+# Perform Residual Diagnostics
+influenceIndexPlot(fert.lm, id=list(n=3,labels=prov.shp$PROVNAME))
+fertResid <- residuals(fert.lm)
+```
+
+# Identify potential outlier
+```{r outlier}
+## Why is Bolzano-Bozen an extreme observation? Shall we delete it?
+idx.max <- which.max(abs(fertResid))        # Get index of a record with "outlying" observation 
+
+## Map potential outlier
+extremeObs <- rep(0, length(fertResid))
+extremeObs[idx.max] <- 1
+extremeObs <- factor(extremeObs, labels=c("Population","Outlier"))
+table(extremeObs)
+plot(neig.shp,axes=T,col=grey(0.9),border="white",                 # background: neighboring countries
+     xlim=prov.bbox[1,],ylim=prov.bbox[2,])                     
+mapColorQual(extremeObs, prov.shp, map.title="Potential Outlier",
+              legend.title="Outliers", add.to.map=T)        
+
+## Inspect outlier
+prov.shp@data[idx.max,]                      # List info of record centre is outlier
+
+## Delete outlier or update information
+#prov.shp <- prov.shp[-idx.max ]             # Delete extreme observation from shapefile 
+prov.shp@data[idx.max, "TOTFERTRAT"] <- 1.2  # Or change its value within the shapefile
+
+## Continue with updated dataset
+fert.lm <- lm(TOTFERTRAT~ILLITERRAT+FEMMARAGE+DIVORCERAT+TELEPERFAM,data=prov.shp) # update model
+summary(fert.lm)
+influenceIndexPlot(fert.lm, id=list(n=3, labels=prov.shp$PROVNAME))
+```
+
+# Check for heteroscedasticity
+```{r heterocheck}
+## Check for heteroscedasticity
+fert.fgls <- lmHetero(TOTFERTRAT~ILLITERRAT+FEMMARAGE+DIVORCERAT+TELEPERFAM | log(FEMPOP94),
+                      data=prov.shp)
+summary(fert.fgls)
+```
+Note the possitive sign of $\gamma_2$ is contradicting theory. This is marginal significant of the heteroscedastic model and will be used subsequently for demonstration purposes.
+
+Therefore, the lm-model is updated to a weighted lm-model.
+```{r wlm}
+fert.wlm <- lm(TOTFERTRAT~ILLITERRAT+FEMMARAGE+DIVORCERAT+TELEPERFAM, data=prov.shp,
+               weights=fert.fgls$weights)
+```
+
+# Bipolar map theme of regression residual
+```{r residmap}
+## Plot Regression Residuals (Bi-polar)
+fertResid <- weighted.residuals(fert.wlm)                # Update residuals
+hist(fertResid, main="Residuals of Weighted Model")      # Explore distribution to
+length(fertResid[fertResid < 0])                         # identify number of pos/neg classes
+length(fertResid[fertResid >= 0])
+
+plot(neig.shp,axes=T,col=grey(0.9),border="white",
+     xlim=prov.bbox[1,],ylim=prov.bbox[2,])               # first background
+mapBiPolar(fertResid, prov.shp,                           # second regression residuals
+            neg.breaks=5, pos.breaks=4, break.value=0.0, 
+            map.title="Fertility Model Residuals",
+            legend.title="Residuals", 
+            legend.cex=0.7, add.to.map=T)
+```
+
+The map pattern indicates that there are spatial clusters with positive and negative regression residuals. Thus the independence assumption is violated.
+
+# Identify the linkage structure
+```{r linkmap}
+## Plot Augmented Spatial Links among Italian Provinces
+## Notes: Shape file has been edited so satellite islands are connected to mainland
+## Alternatively spdep::edit.nb function (does not work with RStudio)
+prov.link <- poly2nb(prov.shp, queen=F)                          # Generate neighbors links
+
+plot(neig.shp,axes=T,col=grey(0.9),border="white",
+     xlim=prov.bbox[1,],ylim=prov.bbox[2,])                      # First background
+plot(prov.shp,col="palegreen3" ,border=grey(0.9), axes=T, add=T) # Second plot areas
+plot(prov.link,coords=prov.centroid, pch=19, cex=0.1,            # Third plot links focused at centroids
+     col="blue", add=T)
+title("Augmented Spatial Links among Provinces")                 # Forth add title
+box()                                                            # Fifth refresh frame
+```
+
+Explore the structure of `prov.link`:
+```{r strucLink}
+summary(prov.link)
+str(prov.link)
+```
+
+# Perform a test for spatial autocorrelation in the residuals
+```{r morantest}
+prov.linkW <- nb2listw(prov.link, style="W")                   # generated row-sum standardized neighbors list
+spOutliers <- moran.plot(weighted.residuals(fert.wlm),         # Moran plot with outlier diagnositics
+                         prov.linkW, labels=prov.shp$PROVNAME)          
+lm.morantest(fert.wlm, prov.linkW)                             # Test with W-coding scheme
+```
+Also look up `help(lm.morantest)`. Internally weighted regression residuals are used.
+
+# Evaluate Correlogram (correlation at higher order spatial lags)
+```{r correl}
+plot(sp.correlogram(prov.link, weighted.residuals(fert.wlm), order=8, method="I", style = "W"))
+```
+
+From spatial lag 2 onwards Moran's I is no longer significant.
+
+# Test for Spatial Autocorrelation Using Randomization
+In case the assumption that the residuals are normally distributed no longer holds, the distribution of Morans's $I$ can evaluated using a randomization approach.
+```{r SARresid}
+moran.mc(weighted.residuals(fert.wlm), prov.linkW, nsim=9999) 
+help(moran.mc, package="spdep")
+```
+
+A few examples of random pattern:
+```{r randomPat}
+##
+## Evaluation by randomization
+##
+fertResid <- weighted.residuals(fert.wlm)
+
+## Original values
+mi <- lm.morantest(lm(fertResid~1), prov.linkW)           # Test with W-coding scheme
+plot(neig.shp,axes=T,col=grey(0.9),border="white",
+     xlim=prov.bbox[1,],ylim=prov.bbox[2,])               # first background
+mapBiPolar(fertResid, prov.shp,                           # second regression residuals
+           neg.breaks=5, pos.breaks=4, break.value=0.0, 
+           map.title="",
+           legend.title="Residuals", 
+           legend.cex=0.7, add.to.map=T)
+title(main=bquote(paste("Observed Fertility Model Residuals with ", I==.(round(mi$estimate[[1]],3)))),
+      cex.main=1.2)
+
+## 1st Randomization
+fertResid <- sample(fertResid, size=length(fertResid))
+mi <- lm.morantest(lm(fertResid~1), prov.linkW)           # Test with W-coding scheme
+plot(neig.shp,axes=T,col=grey(0.9),border="white",
+     xlim=prov.bbox[1,],ylim=prov.bbox[2,])               # first background
+mapBiPolar(fertResid, prov.shp,                           # second regression residuals
+           neg.breaks=5, pos.breaks=4, break.value=0.0, 
+           map.title="",
+           legend.title="Residuals", 
+           legend.cex=0.7, add.to.map=T)
+title(main=bquote(paste("1st Randomized Fertility Model Residuals with ", I==.(round(mi$estimate[[1]],3)))),
+      cex.main=1.2)
+
+## 2nd Randomization
+fertResid <- sample(fertResid, size=length(fertResid))
+mi <- lm.morantest(lm(fertResid~1), prov.linkW)           # Test with W-coding scheme
+plot(neig.shp,axes=T,col=grey(0.9),border="white",
+     xlim=prov.bbox[1,],ylim=prov.bbox[2,])               # first background
+mapBiPolar(fertResid, prov.shp,                           # second regression residuals
+           neg.breaks=5, pos.breaks=4, break.value=0.0, 
+           map.title="",
+           legend.title="Residuals", 
+           legend.cex=0.7, add.to.map=T)
+title(main=bquote(paste("2st Randomized Fertility Model Residuals with ", I==.(round(mi$estimate[[1]],3)))),
+      cex.main=1.2)
+
+```
+
+# Eigenvalues and Vectors of $M \cdot (V+V^T)/2 \cdot M$
+The two most extreme spatial patterns are shown below
+
+```{r}
+V <- spdep::nb2mat(prov.link, style="W", zero.policy = TRUE)
+X <- model.matrix(fert.wlm)
+n <- nrow(X)
+M <- diag(1,nrow=n) - X %*% solve(t(X)%*%X) %*% t(X)
+MVM <- M %*% ((V+t(V))*0.5) %*% M
+eig <- eigen(MVM, symmetric = T)
+
+# First eigenvector
+plot(neig.shp,axes=T,col=grey(0.9),border="white",
+     xlim=prov.bbox[1,],ylim=prov.bbox[2,])               # first background
+mapBiPolar(eig$vectors[,1], prov.shp,                
+           neg.breaks=5, pos.breaks=4, break.value=0.0, 
+           map.title="",
+           legend.title="1st Eigenvector", 
+           legend.cex=1, add.to.map=T)
+title(main=bquote(paste("1st Eigenvector with ", I==.(round(eig$values[1],3)))),
+      cex.main=1.5)
+
+# Last eigenvector
+plot(neig.shp,axes=T,col=grey(0.9),border="white",
+     xlim=prov.bbox[1,],ylim=prov.bbox[2,])               # first background
+mapBiPolar(eig$vectors[,n], prov.shp,                
+           neg.breaks=5, pos.breaks=4, break.value=0.0, 
+           map.title="",
+           legend.title="95th Eigenvector", 
+           legend.cex=1, add.to.map=T)
+title(main=bquote(paste("95th Eigenvector with ", I==.(round(eig$values[n],3)))),
+      cex.main=1.5)
+```
+

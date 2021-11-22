@@ -1,0 +1,32 @@
+Package: CancerSEA
+Type: Package
+Title: Maps of the U.S. 508 SEAs with Cancer Data & Migration Flows
+        plus Scripts
+Version: 0.9.7
+Date: April 21, 2019
+Author: Michael Tiefelsdorf & Xiaojun Pu (University of Texas at Dallas)
+Maintainer: Michael Tiefelsdorf <tiefelsdorf@utd.edu>
+Description: This package bundles data and scripts used in the discussion paper
+    by Xiaojun Pu & Michael Tiefelsdorf (2017). "Bayesian Disease Mapping of Lung
+    Cancer: Controlled for Uncertainties induced by Mixing Effects of Interregional
+    Migration". 
+    The following is included in the library CancerSEA: 
+    [a] geographic polygon files to map the 508 SEAs including AK and HI;
+    [b] cancer data for the 508 SEAs for the periods 1950-69 and 1970-94,
+        see <https://dceg.cancer.gov/research/how-we-study/
+        descriptive-epidemiology/cancer-mortality-atlas>; 
+    [c] potential evironmental and behaviorial risk factors; 
+    [d] a 508 by 508 SEA origin-destination migration matrix for the accounting 
+        period 1965-70; 
+    [e] scripts used in the discussion paper; and
+    [f] vignette demonstrating the Bayesian INLA analysis procedure using the 
+        parallel socket model for all operating systems.
+Depends: sp, maptools
+Imports: sp, maptools
+Suggests: RColorBrewer, classInt, INLABMA, INLA, knitr, rmarkdown
+LazyData: yes
+License: GPL-3
+RoxygenNote: 6.1.0
+VignetteBuilder: knitr
+NeedsCompilation: no
+Packaged: 2019-04-24 01:12:25 UTC; Michael

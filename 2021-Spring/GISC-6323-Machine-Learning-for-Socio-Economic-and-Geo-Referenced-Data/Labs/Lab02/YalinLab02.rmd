@@ -1,0 +1,160 @@
+---
+title: "GISC-6323-Machine-Learning-for-Socio-Economic-and-Geo-Referenced-Data Lab02"
+author: "Yalin Yang"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: yes
+    df_print: paged
+  pdf_document:
+    toc: yes
+vignette: |
+  %\VignetteIndexEntry{DallasMarketAreas} %\VignetteEngine{knitr::rmarkdown} %\VignetteEncoding{UTF-8}
+---
+
+```{r message=FALSE, warning=FALSE}
+library(TexMix)    ## For mapping functions
+library(sp);library(maptools)
+library(spdep);library(ClustGeo)
+
+## Get neighboring state as spatial reference frame
+neig.shp <- rgdal::readOGR(dsn="TXCnty2020", layer = "TXNeighbors",
+                             integer64 = "allow.loss", stringsAsFactors=T)
+
+## Get interstate layer for spatial orientation
+interState.shp <- rgdal::readOGR(dsn="TXCnty2020", layer = "InterStateHwy",
+                                 integer64 = "allow.loss", stringsAsFactors=T)
+
+## Get polygons of TX counties
+county.shp <- rgdal::readOGR(dsn="TXCnty2020", layer = "TXCnty2020",
+                            integer64 = "allow.loss", stringsAsFactors=T)
+```
+
+
+## Definition of the spatial dissimilarity metric
+
+Set the spatial tessellation of the census tracts up and prepare the contiguity 
+space dissimilarity among the census tracts.
+
+### spatial structure distance matrices
+
+```{r fig.height=7, fig.width=11}
+##
+## Exclude Loving County
+##
+county.shp <- county.shp[county.shp$NAME!="Loving", ]
+
+
+county.bbox <- bbox(county.shp)                # county bounding box for map region
+county.centroid <- coordinates(county.shp)     # Get county centroids
+
+##
+## Get spatial structure distance matrices
+##
+nb <- spdep::poly2nb(county.shp, queen=F)      # extract first order neighbors links
+B <- spdep::nb2mat(nb, style="B")              # convert neighbor list to binary matrix
+plot(county.shp, col="palegreen3", border=grey(0.9), axes=T) # map topology
+plot(nb, coords=coordinates(county.shp), pch=19, cex=0.1, col="blue", add=T)
+title("Spatial Neighbors Links among TX County") 
+topoDist <- 1-B; diag(topoDist) <- 0          # convert into dissimilarity
+topoDist <- as.dist(topoDist)                 # convert into distance object
+
+##
+## Get steps distance from topology
+##
+BNa <- ifelse(B==0,NA,B)                      # recode 0's to NA's
+allPath <- e1071::allShortestPaths(BNa)       # calucate the shortest path among all nodes
+topoDist <- as.dist(allPath$length)           # number of steps from origin to destination node
+```
+### spherical distance matrix
+
+```{r}
+sphDist <- sp::spDists(county.shp, longlat=T)   # spherical distance matrix among tracts in km
+sphDist <- as.dist(sphDist)
+```
+
+In this study, we applied the spatial neighbors' matrix as the spatial constrains.  Since we want our results from the same cluster are spatially connected (based on topological relationship, not only the shortest distance). Also, by experiment, the spatial neighbors' matrix gives us a visually better result. 
+
+## Prepare the feature similarity matrix
+
+We select variables from 4 perspectives:
+**[a] cultural:**RELIGADHER
+
+**[b] political:**CLINTONVOT (%vote to clinton), TRUMPVOT16 (%vote to Trump), OBAVOT12 (%vote to Obama), 
+ROMVOT12 (%vote to Rmney)
+
+**[c] socio-economic:** BNEW (Percent of housing units built after 2000), BOLD (Percent of housing units built before 1960),
+CRIMERATE,DISTMEX,uninsured,SINGLEMOM,COLLEGEDEG,UNEMPL,INCOME,MEDVALHOME,OWNOCCPCT,MOVEPREPCT,VMDDPC
+
+**[d] residential:** POPDENSE,MEDAGE,AGE18LESS,AGE65UP,PARTBLACK,PARTASIAN,HISPORG,BIR15TO50,NOGOODENG,DAYPOP18
+
+```{r}
+Vars <- county.shp@data
+Vars <- transform(Vars,
+  RELIGADHER = as.numeric(RELIGADHER),
+  ROMVOT12 = ROMVOT12/TOTALVOT12,
+  OBAVOT12 = OBAVOT12/TOTALVOT12,
+  TRUMPVOT16 = TRUMPVOT16/TOTALVOT16,
+  CLINTONVOT = CLINTONVOT/TOTALVOT16,
+  DAYPOP18 = DAYPOP18 / NIGHTPOP18,
+  POPDENSE = log(POPDENSE),
+  BNEW = B2010PCT+B2000PCT,
+  BOLD = B1960PCT+B1950PCT+B1940PCT+BPREPCT
+)
+
+varKeep <- c("CRIMERATE","CLINTONVOT","TRUMPVOT16","TURNOUT12","DISTMEX","MEDAGE",
+             "RELIGADHER","UNINSURED","AGE18LESS","AGE65UP","PARTBLACK",
+             "PARTASIAN","HISPORG","SINGLEMOM","BIR15TO50","NOGOODENG","COLLEGEDEG",
+             "UNEMPL","INCOME","POPDENSE","DAYPOP18","MEDVALHOME","BNEW","BOLD",
+             "OWNOCCPCT","MOVEPREPCT","VMDDPC")
+
+xVars <- Vars[varKeep]
+row.names(xVars) <- 1:nrow(xVars)
+featDist <- dist(scale(xVars))
+```
+
+## Evaluate mixture of feature and spatial dissimilarity
+
+By experiment, setting the number of clusters to 12 gives us a better result (from both homogeneity within clusters and visually interpretation )
+
+```{r fig.height=7, fig.width=11}
+set.seed(124)
+K <- 12                            # Number of distinct clusters
+range.alpha <- seq(0, 1, by=0.1)   # Evaluation range
+cr <- choicealpha(featDist, sphDist, range.alpha, K, graph=TRUE)
+tree <- hclustgeo(featDist, sphDist, alpha=0.3)
+plot(tree, hang=-1)
+rect.hclust(tree, k=K)
+```
+
+```{r}
+neighClus <- as.factor(cutree(tree, K))        # Determine cluster membership
+table(neighClus)                               # number of tracts in each cluster
+```
+
+## Check the value of variables from each cluster
+
+Based on the box plot, we could generalize the characteristics for each cluster we discovered. Task cluster 1 as an example, it has a high % of Hispanic groups, a high % of uninsured, a high % of young people, a high % of people who do not good at English, and most of the residents support Democrats. 
+
+
+```{r fig.height=8, fig.width=11}
+plotBoxesByFactor(xVars[,1:7], neighClus, ncol=2, zTrans=T, varwidth=F)
+plotBoxesByFactor(xVars[,8:14], neighClus, ncol=2, zTrans=T, varwidth=F)
+plotBoxesByFactor(xVars[,15:21], neighClus, ncol=2, zTrans=T, varwidth=F)
+plotBoxesByFactor(xVars[,22:27], neighClus, ncol=2, zTrans=T, varwidth=F)
+```
+
+## Map Results
+
+```{r fig.height=8, fig.width=12}
+plot(neig.shp, axes=T, col=grey(0.9),                       # first background (only for final maps)
+     border="white", bg="lightblue",
+     xlim=county.bbox[1,], ylim=county.bbox[2,])        
+
+mapColorQual(neighClus, county.shp, 
+             map.title ="Spatially constrained Cluster Analysis",
+             legend.title="Cluster\nId.", legend.cex=0.9, add=T)
+
+plot(interState.shp, col="tomato4", lwd=1, add=T)             # insert road network for orientation
+```
+

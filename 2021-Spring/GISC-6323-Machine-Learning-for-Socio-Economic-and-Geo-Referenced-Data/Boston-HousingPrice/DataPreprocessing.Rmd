@@ -1,0 +1,320 @@
+---
+title: "Ames Data Preprocessing"
+author: "Yalin Yang"
+date: "`r Sys.Date()`"
+output:
+  html_notebook:
+    toc: TRUE
+    toc_float: TRUE
+  word_document:
+    toc: no
+    toc_depth: '3'
+---
+
+# Loading Data and Stratified Sampling
+
+```{r message=FALSE, warning=FALSE}
+rm(list=ls())
+
+# Helper packages
+library(dplyr)
+library(ggplot2)
+library(visdat)
+
+# Feature engineering packages
+library(caret)
+library(recipes)
+
+library(AmesHousing); library(rsample)
+data("ames_raw")
+ames <- make_ames()
+
+# Stratified Random Sampling
+amesSplit <- initial_split(ames, breaks=8, prop=0.7, strata="Sale_Price")
+amesTrain <- training(amesSplit)
+amesTest <- testing(amesSplit)
+
+```
+
+# Methods and aspects for data preprocessing
+
+**Here list the methods we applied to data preprocessing and explanation of why we need to apply them.**
+
+## Residual Analysis
+
+### Do the sample log transformation
+
+```{r fig.height=5, fig.width=12}
+transformed_response <- log(ames_raw$SalePrice)
+
+par(mfrow = c(1,2))
+hist(summary(lm(SalePrice~`Year Built`,data = ames_raw))$residuals,breaks = 50,main = "Non-log transformed model residuals",xlab = 'Value')
+hist(summary(lm(transformed_response~ames_raw$`Year Built`))$residuals,breaks = 50,main = "log transformed model residuals",xlab = 'Value')
+
+```
+```{r}
+## Set a recipe for other variables using log transformation
+ames_recipe <- recipe(Sale_Price~.,data = amesTrain) %>%
+  step_log(all_outcomes())
+ames_recipe
+```
+
+**If we have negative or zero value in original dataset, log transformation would produce Inf or NAN. In this situation, we could do either shift the value by adding 1 or choose Box Cox Transformation**
+
+### Box Cox Transformation
+```{r fig.height=5, fig.width=12, message=FALSE, warning=FALSE}
+library(car)
+par(mfrow = c(1,2))
+lambda <- powerTransform(lm(Sale_Price~1, data=ames))$lambda
+transformed_response <- bcPower(ames$Sale_Price,lambda = lambda)
+hist(summary(lm(Sale_Price~Year_Built,data = ames))$residuals,breaks = 50,main = "Non-transformed model residuals",xlab = 'Value')
+hist(summary(lm(transformed_response~ames$Year_Built))$residuals,breaks = 50,main = "box-cox transformed model residuals",xlab = 'Value')
+
+```
+
+## Missing data
+
+```{r}
+(sum(is.na(AmesHousing::ames_raw)))
+```
+
+
+### Visualizing missing values
+```{r fig.height=10, fig.width=15, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(reshape2)
+
+ames_raw %>% is.na() %>%
+  melt() %>%
+  ggplot(aes(x = Var2,y = Var1,fill=value)) +
+  geom_raster() +
+  coord_flip()+
+  scale_y_continuous(NULL, expand = c(0,0)) + 
+  scale_fill_grey(name = '',labels = c("Present",'Missing'))+
+  xlab('Observation') + 
+  theme(axis.text.y = element_text(size = 4))
+```
+```{r}
+apply(ames_raw,2,function(x){sum(is.na(x))})
+```
+
+**For solving this problem, we could use the following method to select specific columns not have NA**
+
+```{r}
+ames_raw %>%
+  filter(!is.na('Garage Tyepe')) %>%
+  select('Garage Type','Garage Cars','Garage Area') %>%
+  head()
+```
+
+## Imputation
+
+imputation is the process replacing missing data with a **"best guess"** data Sometime we use mean,median,or other statistics to fill the missing data , but this kind of process **do not consider any other attributes** for a given observation. An alternative is to use grouped statistics to capture expected values for observations that fall into similar groups.(infeasible for larger datasets)
+
+### K-nearest neighbor
+
+```{r}
+ames_recipe %>%
+  step_knnimpute(all_predictors(),neighbors = 6)
+ames_recipe %>%
+  step_bagimpute(all_predictors())
+```
+
+### Tree base imputaion
+
+**Random forest** are **computational demands** in resampling enviorments. **Bagged tree** offer compromise between accuracy and computational burden
+
+```{r}
+ames_recipe %>%
+  step_bagimpute(all_predictors())
+```
+
+## Feature filtering
+This process pays attention to near-zero variance feature:
+1. the fraction of unique values over the sample size is low (<10%, eg. 100 obeservation, less than 10 unique values)
+2. the fraction of the most prevalent value to the fraction of the second most prevalent value is large. (>20%)
+
+```{r message=FALSE, warning=FALSE}
+library(tibble)
+caret::nearZeroVar(amesTrain,saveMetrics = T) %>%
+  rownames_to_column() %>%
+  filter(nzv) %>%
+  head()
+```
+
+For how to calculate those two dummy variables, here is their equation.
+
+```{r}
+### Equation for Percent Unique
+length(unique(amesTrain$Street))/nrow(amesTrain) * 100
+```
+
+```{r}
+### Equation for FreqRatio
+sort(table(amesTrain$Street),decreasing = T)[1]/ sort(table(amesTrain$Street),decreasing = T)[2] 
+
+sort(table(amesTrain$Land_Contour),decreasing = T)[1]/ sort(table(amesTrain$Land_Contour),decreasing = T)[2] 
+```
+
+## Normalization and Standardlization
+
+Using YeoJohnson(power) transformation in Normalization
+
+### Normalization 
+```{r}
+recipe(Sale_Price~., data = amesTrain) %>%
+  step_YeoJohnson(all_numeric())   ## Using YeoJohnson(power) transformation
+```
+
+### Standardlization
+Provides a common comparable unit of measure across all the variables.
+```{r}
+ames_recipe %>%
+  step_center(all_numeric(),-all_outcomes()) %>%
+  step_scale(all_numeric(),-all_outcomes())
+```
+
+## Categorical feature engineering
+### Lumping
+
+Collapse all levels that are observed in less than 10%  of the dataset into an "other"category.
+
+Some categorical features only have few observations in some levels
+```{r}
+count(amesTrain,Neighborhood) %>% arrange(n) %>% head()
+```
+Numerical features may be concentrated around one value (Screen_Porch: 92% are 0)
+94 observations in total 2055 have unique non-zero value
+```{r}
+
+count(amesTrain,Screen_Porch) %>% arrange(n) %>% head()
+
+```
+
+**Lump levels for two features**
+
+```{r message=FALSE, warning=FALSE}
+
+lumping <- recipe(Sale_Price~., data = amesTrain) %>%
+  step_other(Neighborhood,threshold = 0.01,other = "others") %>%
+  step_other(Screen_Porch,threshold = 0.1,other = ">0")
+  
+## Apply this recipe(blue print)
+apply_2_training <- prep(lumping,training = amesTrain) %>%
+  bake(amesTrain)
+```
+See the distribuion of two features again
+
+```{r}
+count(apply_2_training,Neighborhood) %>% arrange(n) %>% head()
+count(apply_2_training,Screen_Porch) %>% arrange(n) 
+```
+
+### One-hot & dummy encoding
+
+This method would increase the dimensionality of datasets. So if the dataset with many categorical variables, using the alternative way called label/ordinal encoding
+
+```{r}
+recipe(Sale_Price~., data = amesTrain) %>%
+  step_dummy(all_nominal(),one_hot = T)
+```
+
+### Label/Ordinal encoding
+
+Notice that this result would be treated as ordered number, So usually we rank the feature before Label encoding
+
+The original distribution of feature
+
+```{r}
+count(amesTrain,MS_SubClass) %>% arrange(n) %>% head()
+```
+After Baked
+```{r message=FALSE, warning=FALSE}
+recipe(Sale_Price~., data = amesTrain) %>%
+  step_integer(MS_SubClass) %>%
+  prep(amesTrain) %>%
+  bake(amesTrain) %>%
+  count(MS_SubClass)
+```
+## Dimension reduction
+
+Get ride of irrelevant variables using principal component analysis
+
+```{r}
+recipe(Sale_Price~., data = amesTrain) %>%
+  step_center(all_numeric())%>%
+  step_scale(all_numeric())%>%
+  step_pca(all_numeric(),threshold = .95)
+```
+
+# Data Preprocessing
+
+**1.Remove Near-zero variance features that are nominal**
+**2.Ordinal encode our quality-based features**
+**3.Center and scale all numeric features.**
+**4.Perform dimension reduction by using principal component analysis (not work)**
+**5.one-hot encode remainning categorical features**
+
+## Set steps for data processing
+
+```{r}
+blueprint <- recipe(Sale_Price~., data = amesTrain) %>%
+  step_nzv(all_numeric())%>%
+  step_integer(matches("Qual|Cound|QC|Qu")) %>%
+  step_center(all_numeric(),-all_outcomes())%>%
+  step_scale(all_numeric(),-all_outcomes())%>%
+  # step_pca(all_numeric(),-all_outcomes())%>%
+  step_dummy(all_nominal(),-all_outcomes(),one_hot = T)
+  
+blueprint  
+```
+
+## Train this blueprint on training dataset
+
+```{r message=FALSE, warning=FALSE}
+prepare <- prep(blueprint,training = amesTrain) 
+prepare
+```
+
+## Save results
+```{r}
+baked_train <- bake(prepare,new_data = amesTrain)
+baked_test <- bake(prepare,new_data = amesTest)
+write.csv(baked_train,'Training.csv')
+write.csv(baked_test,'Testing.csv')
+head(baked_train)
+```
+
+
+## Resampling
+
+Next, we apply the resampling method and hyperparameter search grid.
+
+```{r message=FALSE, warning=FALSE}
+# Specify resampling plan
+cv <- trainControl(
+  method = "repeatedcv",
+  number = 10,
+  repeats = 5
+)
+
+# Construct grid of hyperparameter values
+hyper_grid <- expand.grid(k = seq(2,25,by = 1))
+
+# Tune a knn model using grid search
+knn_fit2 <- train(
+  blueprint,
+  data = amesTrain,
+  method = 'knn',
+  trControl = cv,
+  tuneGrid = hyper_grid,
+  metric = "RMSE"
+)
+```
+
+## results visualization
+
+```{r message=FALSE, warning=FALSE}
+ggplot(knn_fit2)
+```
+

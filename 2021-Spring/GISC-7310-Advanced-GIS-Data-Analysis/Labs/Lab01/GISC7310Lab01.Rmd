@@ -1,0 +1,339 @@
+---
+title: "Lab01: Data Transformations, Bivariate Regression Analysis, Numerical Integration & Distributions"
+author: "Yalin Yang"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  html_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: no
+--- 
+
+# Task 1 
+
+**Univariate Variable Exploration and Transformations [2 points]** 
+
+Use the CPS1985 dataset in the library AER to explore the distribution of the respondents’ wage.<br>
+
+## Task 1.1 
+
+Find the best $\lambda_{best}$-value for the Box-Cox transformation (see summary(car::powerTransform(varName))). Could the log-transformation (i.e., $\lambda=0.0$) instead of $\lambda^best$ be used? Justify your answer. [0.5 points]
+
+```{r fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
+library(AER)
+data("CPS1985")
+symbox(~wage, data=CPS1985)
+```
+```{r warning=FALSE}
+summary(powerTransform(lm(wage~1, data=CPS1985)))
+```
+
+The estimated transformation power ($\lambda = -0.0658$), which is very close to 0. The p-value of the likelihood ratio test (H0: \lambda = 0 ) is larger than 0.05, so we fail to reject the null hypothesis. Instead of using ($\lambda = -0.0658$), the log-transformation should be used in this case.
+
+## Task 1.2
+For the untransformed ($\lambda = 1$), optimal ($\lambda = \lambda𝑏𝑒𝑠𝑡$ ) and over-adjusted (\lambda = -1 ) Box-Cox transformed wage variable repeat the following tasks and comparatively interpret the results:
+
+[a] Draw properly constructed histograms of all three distributions and discuss their properties
+```{r fig.height=6, fig.width=15}
+par(mfrow = c(1,3))
+hist(car::bcPower(CPS1985$wage, lambda=1),breaks = 12,main = 'lambda = 1',xlab = 'x')
+hist(car::bcPower(CPS1985$wage, lambda= -0.0658 ),breaks = 12,main = 'lambda = -0.0658',xlab = 'x')
+hist(car::bcPower(CPS1985$wage, lambda= -1 ),breaks = 12,main = 'lambda = -1',xlab = 'x')
+
+```
+**$\lambda=1$ are positively skewed, $\lambda=-0.068$ are close to the normal distribution with little positive skewness. $\lambda=-1.5$ are highly negatively skewed.**
+
+[b] evaluate their sknewness
+
+```{r}
+skew1 <- e1071::skewness(car::bcPower(CPS1985$wage, lambda=1))
+skew2 <- e1071::skewness(car::bcPower(CPS1985$wage, lambda=-0.0658))
+skew3 <- e1071::skewness(car::bcPower(CPS1985$wage, lambda=-1))
+data.frame(skews = c(skew1,skew2,skew3))
+```
+
+[c] test whether the variables are approximately normal distributed (see `shapiro.test( )`).
+
+Address also the questions: Which transformed variable comes closest to the normal distribution? Is the transformation with $\lambda = -1.5$ over-compensating the inherent positive skewness in the wage variable?[1.5 points]
+
+```{r warning=FALSE}
+shapiro.test(car::bcPower(CPS1985$wage, lambda=1))
+shapiro.test(car::bcPower(CPS1985$wage, lambda=-0.0658))
+shapiro.test(car::bcPower(CPS1985$wage, lambda=-1))
+```
+
+The untransformed wage variable has positive skewness with an outlier \$44500. The optimal transformation makes the transformed distribution almost symmetric with a tiny skewness value. However, the positive skewness is over-compensated when using ($\lambda = -1.5$). This leads to substantial negative skewness
+
+The p-values of Shapiro-Wilk normality tests with $H_0 : X$~$N(\hat{\mu},\hat{\sigma^2})$ for the properly Box-Cox transformed
+data is much smaller than 0.05, therefore transformed wage still deviates from the normal distribution. 
+However, this p-value is the largest one among all three scenarios. Therefore, we can conclude the optimal transformed variable becomes closest to the normal distribution.
+
+# Task 2
+
+**Explore the function powerTransform to achieve a multivariate normal distribution [1 point]**
+
+## Task 2.1
+
+**Simultaneously** estimate the optimal set of Box-Cox transformation parameters for all variables so that the set transformed variables becomes approximately multivariate normal distributed.
+Report your code to do the estimation. [0.5 points]
+
+```{r warning=FALSE}
+Concord <- foreign::read.spss("Concord1.sav ", to.data.frame= TRUE)
+Concord <- na.omit(Concord)
+summary(lambda <- powerTransform(lm(cbind(water79,water80,water81)~1, data=Concord)))
+```
+
+ p-values for transformation vectors ($\lambda = 0,0,0$), i.e., perform a log-transformation on all variables, and ($\lambda = 1,1,1$), i.e., leave all variables untransformed, are much smaller than 𝛼 = 0.05 so we can reject the two null hypotheses assuming these sets of transformation parameters lead to a multivariate normal distribution for the set of variables. The estimated transformation vector ($\lambda = 0.17, 0.18, 0.33$) comes the closest to the multivariate normal distribution.
+
+
+## Task 2.2
+
+Show the output and interpret the results. [0.5 points]
+
+```{r fig.height=6, fig.width=15}
+Concord <- data.frame(Concord,                      # add transformed variables to myPower
+                      bcPower(cbind(Concord$water79,Concord$water80,Concord$water81), coef(lambda, round=T)))
+par(mfrow = c(1,3))
+hist(Concord$Z1.0.17,breaks = 12,main = paste('Water79 , Skewness =',round(e1071::skewness(Concord$Z1.0.17),2)),xlab = 'x')
+hist(Concord$Z2.0.18,breaks = 12,main = paste('Water80 , Skewness =',round(e1071::skewness(Concord$Z2.0.18),2)),xlab = 'x')
+hist(Concord$Z3.0.33,breaks = 12,main = paste('Water81 , Skewness =',round(e1071::skewness(Concord$Z3.0.33),2)),xlab = 'x')
+
+```
+
+
+# Task 3
+**Confidence Intervals [2 points]**
+Continue with the CPS1985 dataset for this task. To simplify things do not perform variable transformations.
+
+## Task 3.1
+Run a **bivariate regression** of wage (dependent variable) on education (independent variable) and **interpret** the model estimates. [0.5 points]
+
+```{r}
+reg01 <- lm(wage~education, data=CPS1985)
+summary(reg01)
+```
+The $R^2$ is only 0.1459 which means only about 14.6% of the variation in the dependent variable wage can be explained by the independent variable education. The statistically significant slope (H0: 𝛽1 = 0 ) is positive meaning with each additional year of education the income will increase the hourly wages by $0.75. While the intercept is not statistically different from zero, it should be keep in the model because [a] there is no logical reason why a person without education may have zero wages, and [b] because otherwise some statistics of the OLS model, such as the 𝑅2 lose their properties.
+
+## Task 3.2
+Calculate the 99 % confidence intervals around the estimated regression parameters. Can you draw the same conclusion as you did using the **t-test** in the summary output of task 3.1? [0.5 points]
+
+```{r}
+cbind("Coef"=coef(reg01), confint(reg01, level=0.9))
+```
+The t-test investigates the null hypotheses that the estimated regression parameters are zero. That is, H0: 𝛽0 = 0 for the intercept and H0: 𝛽1 = 0 for the slope. As long as the 1 - 𝛼 confidence intervals cover the values under the null hypothesis, that is 𝛽0 = 0 and 𝛽1 = 0, the null hypothesis cannot be rejected with an error probability of 𝛼.
+
+## Task 3.3
+
+**Scatterplot** both variables and add the predicted regression line as well as the lower and upper 90% confidence interval lines around the **point predictions**.(i.e., prediction interval in Hamilton and interval="prediction" in the predict function).
+
+```{r fig.height=8, fig.width=15, message=FALSE, warning=FALSE}
+library(ggplot2)
+attach(CPS1985)
+Pred <- predict(reg01, interval="prediction", level = 0.90)
+CPS1985_new <- cbind(CPS1985,Pred)
+q <- ggplot(CPS1985_new,aes(education,wage)) + geom_point() + 
+  geom_line(aes(y=lwr), color = "blue", linetype = "dashed")+
+  geom_line(aes(y=upr), color = "blue", linetype = "dashed")
+q <- q + geom_vline(xintercept =mean(education),color = "red") + 
+  geom_hline(yintercept =mean(wage),color = "red")
+(q + ggtitle('CPS1985:Education Level against Wage'))
+
+```
+
+# Task 4
+**Calibration and Prediction of a Bivariate Regression Model with Skewed Variables [3 points]**
+
+The DBASE file CampusCrime.dbf has among other variables the count variables crime (number of crimes committed on university campuses) and police (size of the campuses police forces).
+
+## Task 4.1
+Plot `police` in dependence of `crime` including their box-plots along the margins. Is a data transformation advisable?
+
+```{r fig.height=8, fig.width=12}
+Crime <- foreign::read.dbf("CampusCrime.dbf" )
+scatterplot(police ~ crime , data = Crime,pch=1, smooth=list(span = 0.35,lty.smooth=1, col.smooth="red", col.var="red"),
+                  regLine=list(col="green"))
+```
+
+The dependent variable police and the independent variable crime should be transformed because both are positively skewed. Furthermore, the residuals of the linear regression model are also slightly positively skewed. To make sure the residuals satisfy the assumption of ordinary least squares, it is advisable that both variables are transformed
+
+## Task 4.2
+Find a proper transformation of both variables in a way that the independent variable crime is approximately symmetrically distributed and that the transformation of the dependent variable police leads to approximately symmetrically distributed regression residuals.
+
+```{r}
+summary(powerTransform(lm(crime~1, data=Crime)))
+```
+
+```{r}
+summary(powerTransform((lm(police~log(crime), data=Crime))))
+```
+
+The suggested lambda parameters are $\lambda = 0.0258$ for the independent variable and $\lambda = -.0051$ for the regression model lm(police~log(crime), data=crime) so that the residuals are approximately normal or at least symmetrically distributed.
+
+## Task 4.3
+Test whether a log-transformation (i.e., $\lambda = 0$) is appropriate for the dependent and the independent variables If the log-transformation is appropriate then use it because their relationship can now be interpreted in terms of elasticities.
+
+The likelihood ratio tests in task 4.2 suggests that the estimated lambda coefficients are not significantly different from zero. Therefore, both crime and police can be log-transformed.
+
+## Task 4.4
+
+Estimate the model in the transformed system and interpret the estimates. Also test if the elasticity (i.e., slope parameter) differs significantly from the neutral elasticity of 1, i.e., H0: 𝛽1 = 1. This could be done manually by using 𝛽1’s standard error from the regression output or by using the function `car::linearHypothesis`.
+
+```{r}
+elast.lm <- lm(log(police)~log(crime), data=Crime)
+summary(elast.lm)
+```
+
+Since the bivariate regression model is specified in the log-log form, the results can be interpreted in terms of elasticity. One percent change in the number of crimes committed on university campuses will lead to 0.47 percent change in the size of the campuses police forces. The meaningful null hypothesis for elasticity is that 1% in the independent variable will lead to 1% change in the dependent variable.
+
+```{r}
+## Test for H0: beta_log(crime)=1
+slope <- coef(elast.lm)[2]
+se <- summary(elast.lm)$coefficients[2, 2]
+df <- nrow(Crime) - 2
+(t.value <- (slope-1)/se) # Note E(slope)=1 under H0
+```
+```{r}
+2*pt(-abs(t.value),df = df)
+```
+
+```{r}
+## Alternative approach. Note: F == t.value^2
+linearHypothesis(elast.lm, c("log(crime) = 1"))
+```
+
+The p value is virtually zero for this test, thus we can reject this null hypothesis H0: 𝛽 = 1.
+The elasticity 0.46573 of the regression model is significantly different from unity, which means the relative change of police is much less elastic than the relative change of crime. Ultimately it means that the relationship exhibits decreasing rates of law enforcement allocation.
+Notice: This is a two-sided test. Thus the p-value needs to be doubled when you look up the table for only one tail. The F-statistic of the linearHypothesis( ) function is equal to the squared t-value.
+
+## Task 4.5
+
+Perform a prediction in the original data units and plot the **median** and **expectation** curves. Interpret the plot both in terms of the median and expectation curves.
+
+```{r fig.height=8, fig.width=12}
+bcReverseMedian <- function(y, lambda){
+##  
+## Predicted Median of Reverse Box-Cox Transformation
+##
+  if (abs(lambda) < 1.0E-6)                                         #1.0E-6 matches bcPower=0
+    rev.med <- exp(y) else
+    rev.med <- (lambda*y+1)^(1/lambda)
+  return(rev.med)
+} # end:revBoxCoxMed
+
+bcReverseExpectation <- function(y, lambda, sigma){
+##
+## Predicted Expectation of Reverse Box-Cox Transformation
+##
+  if (abs(lambda) < 1.0E-6)                                         #1.0E-6 matches bcPower=0 
+    rev.exp <- exp(y+0.5*sigma) else
+    rev.exp <- (lambda*y+1)^(1/lambda)*(1+0.5*sigma*(1-lambda)/(lambda*y+1)^2)
+  return(rev.exp)
+} # end:bcRevExp
+
+plotBoxCox <- function(y, x, ylambda, xlambda){ 
+###################################################################
+## calibrates the model lm(bcPower(y,ylambda)~bcPower(x,xlambda))##
+## Performs a prediction in the transformed system               ##
+## Maps predicted values back into the untransformed system      ##
+###################################################################
+  require(car)
+  ## Transform both variables
+  y.bc <- bcPower(y,ylambda)
+  x.bc <- bcPower(x,xlambda)
+  ## Calibrate transformed model and perform prediciton
+  lm.mod <- lm(y.bc~x.bc)
+  sigma <- sum(lm.mod$residuals^2)/(length(lm.mod$residuals)-2)        # estimate residual variance
+  x.line <- data.frame(x.bc=seq(min(x.bc),max(x.bc),length.out=1000))  # get smooth line
+  pred.line <- predict(lm.mod,x.line)                                  # predict y along line
+
+  y.med.line <- bcReverseMedian(pred.line,ylambda)                     # predicted median
+  y.exp.line <- bcReverseExpectation(pred.line,ylambda,sigma)          # predicted expectation
+  x.med.line <- bcReverseMedian(x.line$x.bc,xlambda)                   # rescaled independent variable
+
+  ## Plot data in the original measurement system
+  plot(x,y,pch=20,                                                 
+       xlab=deparse(substitute(x)), ylab=deparse(substitute(y)),   
+       main="Predictions after Reverse Box-Cox Transformation")
+  ## Plot prediciton lines
+  lines(x.med.line,y.med.line,col="green",lwd=2)                       # conditional median
+  lines(x.med.line,y.exp.line,col="red",lwd=2)                         # conditional expectation
+  legend("topright",title="Conditional Predictions",inset=0.01,bg="white",
+         legend=c("Median Method","Expectation Method"),col=c("green","red"),lwd=2)
+  pred.pts <- predict(lm.mod)
+  pred <- data.frame(y= y, y.pred.med= bcReverseMedian(pred.pts,ylambda), 
+                     y.pred.exp= bcReverseExpectation(pred.pts,ylambda,sigma),x=x)
+  invisible(pred)
+} #end:plotBoxCox
+
+plotBoxCox(Crime$police,Crime$crime,0,0)
+```
+For the predictions being mapped back into the original scale, the expected predicted value is larger than the median predicted value because mean is larger than median in the positively skewed distribution. This applies over the full data range of the independent variable.
+
+# Task 5
+**Numerical Integration [2 points]**
+Evaluate the three distance decay functions along a line of around the central reference point zero.
+$$
+f_1(x) = exp(-x^1) \\
+f_2(x) = exp(-x^2) \\
+f_3(x) = exp(-x^3) 
+$$
+over their full distance range $0≤x≤∞$. Show the clean code for the tasks below.
+
+## Task 5.1
+Plot these three functions within a reasonable value range of the distance x. How does the shape of the curves change with increasing power?
+
+```{r fig.height=8, fig.width=12}
+x <- seq(from = -5,to = 5,by = 0.1)
+y1 <- function(x){return(exp(-(abs(x)^1)))}
+y2 <- function(x){return(exp(-(abs(x)^2)))}
+y3 <- function(x){return(exp(-(abs(x)^3)))}
+plot(x,y1(x),col = 'red',type = 'l')
+lines(x,y2(x),col = 'blue',type = 'l')
+lines(x,y3(x),col = 'green',type = 'l')
+legend("topright", legend=c("exp(-|x|^1)", "exp(-|x|^2)","exp(-|x|^3)"),
+       col=c("red", "blue",'green'), lty=1, cex=0.8)
+```
+
+Before $x <1$, when the power goes up, the decrease speed of the dependent variable (y) goes down. $exp(-x^3 )>expa(-x^2 )>expa(-x^1 )$ After $x>1$,  when the power goes up, the decrease speed of the dependent variable (y) increases.
+
+## Task 5.2
+Evaluate the areas $A_1, A_2$ and $A_3$ underneath the three curves over their full support $0≤x≤∞$ with `integrate( )` function.
+
+## Task 5.3
+Calculate the expectation of the distances $E_i (x) = ∫_0^∞\frac{ x * (f_i (x))}{A_i}  dx$ for all three distance decay functions i∈{1,2,3}. 
+
+```{r}
+f <- function(lambda){
+  A <- integrate(function(x) {exp(-abs(x)^lambda)}, -Inf, Inf)
+  fnE <- function(x) {x*exp(-abs(x)^lambda)/A$value}
+  E <- integrate(fnE, -Inf, Inf)
+  fnV <- function(x) {((x-E$value)^2)*exp(-abs(x)^lambda)/A$value}
+  Var <- integrate(fnV, -Inf, Inf)
+  return(cbind(Lambda=lambda, Area=A$value, Expectation=E$value,
+               Variance=Var$value)) }
+
+```
+
+```{r}
+f(1)
+```
+
+```{r}
+f(2)
+```
+
+```{r}
+f(3)
+```
+
+# Task 6
+**Appendix 1 [2 points]**
+
+## Task 6.1
+Why is a t-distributed random variable 𝑇 with 𝑑𝑓𝑡 degrees of freedom when it is squared 𝑇2 identically to the 𝐹-distributed random variable with one degree of freedom in the numerator and 𝑑𝑓𝑡 degrees of freedom for the denominator? Hint: use the definition of both random variables. [0.8 points]
+

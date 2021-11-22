@@ -1,0 +1,567 @@
+---
+title: "GISC 7360SP 2020 Lab04"
+author: "Yalin Yang"
+date: "`r Sys.Date()`"
+output:
+  html_notebook:
+    toc: TRUE
+    toc_float: TRUE
+  word_document:
+    toc: no
+    toc_depth: '3'
+---
+
+# Lab04: Regression Kriging
+
+## Part I: Trend Surface Model (8 points)
+
+### Task 01:
+
+You may use the script SampleByClick.r to pick manually in total 100 sample points. Alternatively, use your favorite GIS program. This task requires careful planning and perhaps a nested sampling strategy. The predictive quality of your model very much depends on the selected sample points. (2 points)
+
+Clearly justify your selection strategies of sample points based on the criteria listed below: (2 points)
+
+```{r message=FALSE, warning=FALSE}
+rm(list=ls(all=TRUE))
+library(maptools); library(RColorBrewer)
+setwd("G:\\UTD_Classes\\2020Spring\\GISC7360_Pattern_Analysis\\Lecture05\\KansasDEM")
+
+# read the DEM shapefile
+gridDEM <- rgdal::readOGR(dsn=getwd(), layer="DEMPointsDisRiv", integer64="warn.loss") 
+proj4string(gridDEM)
+boxDEM <- bbox(gridDEM)
+cat("Latitude range: ",boxDEM[1,2] - boxDEM[1,1],"\n")
+cat("Longitude range: ",boxDEM[2,2] - boxDEM[2,1],"\n")
+river <- rgdal::readOGR(dsn=getwd(), layer="RiversRevised", integer64="warn.loss")
+proj4string(river)
+```
+```{r}
+grid.data <- as.data.frame(gridDEM)
+summary(grid.data)
+```
+**Plot DEM**
+```{r fig.height=6, fig.width=9}
+breakpts <- seq(250,1000,by=25)                                                 # Define Elevation classes
+hist(grid.data$ELEVATION, breaks=breakpts,
+     xlab="Elevation (meters)", main="Distribution of DEM Elevations")          # Check Distribution
+# lines(density(grid.data$ELEVATION), lwd = 2, col = "chocolate3")                # density plot 
+ncl <- length(breakpts)-1                                                       # Number of classes
+pal <- terrain.colors(ncl)                                                      # get colors
+cols <- pal[findInterval(grid.data$ELEVATION,breakpts,rightmost.closed=T)]      # assign appropriate color to each residual
+```
+
+
+#### Q1
+You want to avoid any bias in the predicted surface. Therefore, the average predicted elevations should match closely the average observed elevations in the study area. *How can you try to avoid this potential bias? (average should be equal)*
+
+Since we want to avoid the bias of selecting sample points,  at first, we could evenly distribute 72 points (6 rows * 12 columns) based on the DEM boundary.
+
+#### Q2
+The extrapolation problem should be avoided and the prediction error, in particular at the edges of the study area, need to be minimized. *How many sample points should be assign to control for this problem? *
+
+Since the trend surface could only solve the problem of interpolation instead of extrapolation, we place 32 points(6*2 + 12 *2 - 4) across the boundary.
+
+**Pick up Sample Points**
+
+```{r}
+library(raster)
+# Place 72 Sample Points evenly in the map
+
+range <- floor(boxDEM[,2]) - ceiling(boxDEM[,1])
+coords.x1 <- seq(ceiling(boxDEM[1,1]), floor(boxDEM[1,2]),length.out = 12)
+coords.x2 <- seq(ceiling(boxDEM[2,1]), floor(boxDEM[2,2]),length.out = 6)
+samplePoints <- as.data.frame(expand.grid(coords.x1,coords.x2))
+samplePoints <- SpatialPoints(samplePoints)
+samplePoints@proj4string <- gridDEM@proj4string
+
+```
+
+```{r message=FALSE, warning=FALSE}
+library(rgeos)
+elevation <- c()
+riveDist <- c()
+for (i in 1:72){
+  index <- which.min(gDistance(samplePoints[i,],gridDEM, byid=TRUE))
+  elevation <- c(elevation,grid.data$ELEVATION[index])
+  riveDist <- c(riveDist,grid.data$RIVERDIST[index])
+}
+samplePoints$ELEVATION <- elevation
+samplePoints$RIVERDIST <- riveDist
+```
+
+#### Q3
+The rapid topographic variation along a transection of the river valleys and ridges needs to be captured properly. *How many sample points should be assigned to model this variability, where should they be placed and which variable in the data set measures it?*
+
+By comparing the distribution of the distance from rivers to DEM points with the distribution of selected sample points, we place an extra 20 points to the range that has a different proportion according to the origin data.
+
+**Select 20 Points within the reasonable River edge area**
+
+```{r}
+summary(samplePoints$RIVERDIST)
+```
+```{r}
+summary(gridDEM$RIVERDIST)
+```
+```{r}
+library(maptools)
+# Keep the Same Range
+
+index <- c()
+
+# Add Max and Min value
+index <- c(index,which.min(gridDEM$RIVERDIST))
+index <- c(index,which.max(gridDEM$RIVERDIST))
+
+# Correct the quartile distribution
+set.seed(1250)
+
+# 8 from min to 1st quantile
+index <- c(index,sample(which(gridDEM$RIVERDIST < quantile(gridDEM$RIVERDIST,0.25)),8))
+
+# 5 from 1st quantile to mean
+index <- c(index,sample(which(gridDEM$RIVERDIST < mean(gridDEM$RIVERDIST) & gridDEM$RIVERDIST > quantile(gridDEM$RIVERDIST,0.25)),5))
+
+# 2 from mean to 3rd quantile
+index <- c(index,sample(which(gridDEM$RIVERDIST > mean(gridDEM$RIVERDIST) & gridDEM$RIVERDIST < quantile(gridDEM$RIVERDIST,0.75)),2))
+
+# 3 nearest to the mean
+diff_mean <- sort(abs(gridDEM$RIVERDIST-mean(gridDEM$RIVERDIST)),decreasing = F)
+index <- c(index,which(abs(gridDEM$RIVERDIST-mean(gridDEM$RIVERDIST)) == diff_mean[1]))
+index <- c(index,which(abs(gridDEM$RIVERDIST-mean(gridDEM$RIVERDIST)) == diff_mean[2]))
+index <- c(index,which(abs(gridDEM$RIVERDIST-mean(gridDEM$RIVERDIST)) == diff_mean[3]))
+
+sample_river <-  SpatialPoints(data.frame(gridDEM@coords[index,1],gridDEM@coords[index,2]))
+sample_river@proj4string <- gridDEM@proj4string
+sample_river$ELEVATION <- gridDEM$ELEVATION[index]
+sample_river$RIVERDIST <- gridDEM$RIVERDIST[index]
+samplePoints <- spRbind(samplePoints,sample_river)
+```
+
+```{r}
+summary(samplePoints$ELEVATION)
+summary(gridDEM$ELEVATION)
+```
+
+```{r fig.height=7, fig.width=10, message=FALSE, warning=FALSE}
+
+riveDist <- Hmisc::histbackback(samplePoints$ELEVATION, gridDEM$ELEVATION,
+                                prob=TRUE, xlab=c("sample","map"),
+                                main="River Distance")
+
+
+```
+
+** Select last 8 points to keep those two distribution with same mean**
+```{r}
+## Keep the same range of elevation
+
+index <- c()
+
+set.seed(1250)
+# Add Max and Min value (2)
+index <- c(index,which.min(gridDEM$ELEVATION))
+index <- c(index,which.max(gridDEM$ELEVATION))
+
+# 1 from the 1st quantile
+index <- c(index,sample(which(gridDEM$ELEVATION < quantile(gridDEM$ELEVATION,0.25)),1))
+
+# 1 from the 3st quantile
+index <- c(index,sample(which(gridDEM$ELEVATION > mean(gridDEM$ELEVATION) & gridDEM$ELEVATION < quantile(gridDEM$ELEVATION,0.75)),1))
+
+# 4 nearest to the mean
+diff_mean <- sort(abs(gridDEM$ELEVATION-mean(gridDEM$ELEVATION)),decreasing = F)
+index <- c(index,sample(which(abs(gridDEM$ELEVATION-mean(gridDEM$ELEVATION)) == diff_mean[1]),4))
+
+
+sample_dem <-  SpatialPoints(data.frame(gridDEM@coords[index,1],gridDEM@coords[index,2]))
+sample_dem@proj4string <- gridDEM@proj4string
+sample_dem$ELEVATION <- gridDEM$ELEVATION[index]
+sample_dem$RIVERDIST <- gridDEM$RIVERDIST[index]
+samplePoints <- spRbind(samplePoints,sample_dem)
+
+```
+
+**t test**
+```{r}
+t.test(samplePoints$ELEVATION, gridDEM$ELEVATION)
+```
+#### Q4
+In order to build a well-defined variogram all spatial scales of the inter-sample point distances need to be represented. *How many sample points should be assigned to fill in missing distance ranges and where should these points be placed?*
+
+In order to build a well-defined variogram, the inter-sample point distance should be in variety.  we place multiple points within each quantile range from the original data, it should be enough to simulate the relationship between different distance. Also, we place plenty enough points near to the average elevation, which could be used for modeling the relationship with small inter-distance.
+
+**Finally, show the map of your sampling points and the given elevations similar to the map shown above.**
+
+```{r fig.height=8, fig.width=12}
+plot(gridDEM, axes=T, col=cols, pch=15,cex=1)                                   # Observed DEM Grid
+plot(river,col="blue",add=T)
+points(samplePoints,col= "Red",pch = 18)
+title("Sample DEM Locations")
+```
+
+### Task 02 
+Estimate the 1st, 2nd and 3rd order trend-surface models. Include the distance to the nearest rivers as covariable. (1 point)(determine which one is good using partial F test, using histogram to compare)
+
+#### Transfer coordinates
+
+```{r}
+zTransCoord <- function(x,xmean,xsd,reverse=F){  
+  if (reverse == F) x <- (x-xmean)/xsd
+  else x <- x*xsd+xmean
+  return(x)
+} #end:zTransCoord
+
+yMean <- mean(samplePoints@coords[,2]); xMean <- mean(samplePoints@coords[,1])
+ySd <- sd(samplePoints@coords[,2]); xSd <- sd(samplePoints@coords[,1])
+
+samplePoints$X <- zTransCoord(samplePoints@coords[,1],xMean,xSd)
+samplePoints$Y <- zTransCoord(samplePoints@coords[,2],yMean,ySd)
+gridDEM$X <- zTransCoord(gridDEM$coords.x1,xMean,xSd)
+gridDEM$Y <- zTransCoord(gridDEM$coords.x2,yMean,ySd)
+
+```
+
+```{r}
+makeTrendPolyForm <- function(baseForm=Z~1, coordForm=~X+Y, shpDf=NULL, polyDeg=1){
+  if (missing(baseForm) || class(baseForm) != "formula") stop("'baseForm' missing or incorrect")
+  if (missing(coordForm) || class(coordForm) != "formula" || length(all.vars(coordForm)) != 2)
+      stop("'coordForm' missing or incorrect")
+  if (as.integer(polyDeg) < 1L ) stop("'polyDeg' needs to be integer of 1 or above")
+  ## shpDf declare check input variables
+  if (!is.null(shpDf)){
+    if (class(try(model.frame(baseForm, shpDf), T)) != "data.frame") stop("Incorrect variables in 'baseFrom'")
+    if (class(try(model.frame(coordForm, shpDf), T)) != "data.frame") stop("Incorrect variables in 'coordFrom'")
+  }
+  ## Build string with the trend-surface coordinates
+  expo <- expand.grid(0L:polyDeg, 0L:polyDeg)
+  expo <- expo[rowSums(expo) <= polyDeg, ]    # make sure only terms up to polyDeg enter the formula
+  expo <- expo[-1,]                           # exclude x^0*y^0
+  expo <- expo[order(rowSums(expo)), ]        # make sure formula is sorted by the degree of the polynomial
+  formStr <- "~ ."
+  xy <- all.vars(coordForm)  
+  for (i in 1: nrow(expo)) {
+    formStr <- paste(formStr, " + I(",xy[1],"^",expo[i,1],"*",xy[2],"^",expo[i,2],")", sep="")  
+  }  
+  ## Merge covariate and polynomial formulas
+  polyForm <- update(baseForm,as.formula(formStr))
+  
+  return(polyForm)
+} #end::makeTrendPolyForm
+```
+
+#### Fit 1stOrder TrendSurface
+
+```{r}
+polyForm1 <- makeTrendPolyForm(ELEVATION~RIVERDIST+I(RIVERDIST^2), ~X+Y, shpDf=samplePoints, polyDeg=1)
+lmTrend1 <- lm(polyForm1, data=samplePoints)
+summary(lmTrend1)
+```
+
+#### Fit 2nd Order TrendSurface
+
+```{r}
+polyForm2 <- makeTrendPolyForm(ELEVATION~RIVERDIST+I(RIVERDIST^2), ~X+Y, shpDf=samplePoints, polyDeg=2)
+lmTrend2 <- lm(polyForm2, data=samplePoints)
+summary(lmTrend2)
+```
+
+**Compare two models**
+```{r}
+anova(lmTrend1,lmTrend2)
+```
+
+#### Fit 3rd Order TrendSurface
+
+```{r}
+polyForm3 <- makeTrendPolyForm(ELEVATION~RIVERDIST, ~X+Y, shpDf=samplePoints, polyDeg=3)
+lmTrend3 <- lm(polyForm3, data=samplePoints)
+summary(lmTrend3)
+```
+
+**Check the multicollinearity**
+
+```{r}
+car::vif(lmTrend3)
+```
+
+**Compare models**
+
+```{r}
+anova(lmTrend2,lmTrend3)
+```
+
+**According to the partial F-test result, the 3rd order model can be utilized as the optimal model.**
+
+### Task 03 
+Map the three predicted trend-surfaces. Use a meaningful color ramp. (1 point) (Sd distribution?)
+
+```{r fig.height=8, fig.width=14}
+par(mfrow = c(1,3))
+model_lst = list(lmTrend1,lmTrend2,lmTrend3)
+
+break_lst <- list()
+for (i in 1:3){
+  predTrend <- predict(model_lst[[i]], gridDEM, se.fit = TRUE)
+  predFit <- predTrend$fit
+  predHist <- hist(predFit,freq=F,main= paste("Predicted DEM",i,"Order Trend"))
+  break_lst[[i]] <- predHist$breaks
+}
+```
+
+```{r fig.height=18, fig.width=10}
+par(mfrow = c(3,1))
+
+for (i in 1:3){
+  predTrend <- predict(model_lst[[i]], gridDEM, se.fit = TRUE)
+  predFit <- predTrend$fit
+  breakptsPred <- break_lst[[i]]
+  nclPred <- length(breakptsPred)-1                                                   # Number of classes
+  palPred <- terrain.colors(nclPred)                                                  # get colors
+  colsPred <- palPred[findInterval(predFit,
+                                 breakptsPred,rightmost.closed=T)]                    # assign appropriate color to each residual
+
+  plot(gridDEM, axes=T, col=colsPred, pch=15,cex=1)
+  plot(river,col="blue",add=T)
+  title(paste("Predicted ", i, "Order DEM Surface"))
+}
+```
+
+### Task 04
+Decide with the partial F-test, which of the three surface models is most appropriate for your given sample points. Interpreted the selected trend-surface regression model. (1 point)
+
+```{r fig.height=6, fig.width=10}
+par(mfrow = c(1,2))
+
+predTrend3 <- predict(lmTrend3, gridDEM, se.fit = TRUE)
+predFit <- predTrend3$fit
+predHist <- hist(predFit,freq=F,main="Predicted DEM 3rd Order Trend")
+originHist <- hist(grid.data$ELEVATION,freq=F,main="Observed DEM Trend")
+```
+
+```{r fig.height=8, fig.width=10}
+obsElev <- gridDEM$ELEVATION
+plot(obsElev,predFit,pch=".")  ## note granularity of observed elevation
+title(main="Observed against Predicted Elevations")
+abline(a=0,b=1)
+```
+
+
+```{r}
+summary(predFit)
+summary(grid.data$ELEVATION)
+e1071::skewness(predFit) ; e1071::skewness(grid.data$ELEVATION)
+e1071::kurtosis(predFit) ; e1071::kurtosis(grid.data$ELEVATION)
+```
+
+```{r}
+t.test(predFit,grid.data$ELEVATION)
+```
+
+According to the partial F-test result, the 3rd order model can be utilized as the optimal model. From the t-test, the predicted value has the same average to the observed elevation. And both of those two distributions have similar skewness and kurtosis trend.
+
+### Task 05
+Evaluate the prediction quality of your most appropriate trend surface model. Does the histogram of observed elevations match that based on the predicted values? Does your prediction model lead to biased overall elevation estimates? If yes, what may be the cause? (1 point)
+
+From the histogram provided in task 3, the observed distribution has a longer tail around the elevation within 800 - 900 meters. The result of skewness also proves that the observed value is more positively skewed. And the predicted value is more evenly distributed according to the kurtosis.
+Both of those two difference indicates that our model is over smoothed than the observed. Since our model simulating the global trend and ignores some local trends with rapid change.
+
+### Task 06
+For your most appropriate model, map the **standard errors** of the prediction surfaces. Use a meaningful color ramp. Interpret the general pattern in the standard errors. In particular evaluate the standard errors at the edges of the study area relative to those in the center? (1 point)
+
+```{r fig.height=9, fig.width=12}
+library(classInt)
+predSe.3 <- predTrend3$se.fit
+n.col <- 6
+pal <- brewer.pal(n.col,"Oranges")
+seClass <- classIntervals(predSe.3, n.col, style="equal")
+seCol <- findColours(seClass,pal)
+plot(gridDEM,axes=T,col=seCol,pch=15,cex=2,
+main="Prediction Standard Error: 3rd Order Trendsurface")
+plot(river,col="blue",add=T)
+legend("topleft", title = "Std.Erros",
+legend = leglabs(round(seClass$brks, digits = 0)), fill = pal, bty = "o", ncol = 1)
+```
+
+The central part of the study area has the smallest standard errors. With the distance closer to the edges of the study area, standard errors tend to be larger, and the four corners of the study area have the largest standard errors
+
+### Task 07
+
+For your most appropriate model, calculate the error component (residual surface: observed DEM minus predicted trend DEM). Map this pattern with a bipolar map theme (zero is the neutral value) and overlay the river network onto your residual map. Interpret this residual pattern. (1 point)
+
+```{r fig.height=8, fig.width=12}
+pred.res <- gridDEM$ELEVATION-predTrend3$fit
+n.col <- 5
+pal <- rev(brewer.pal(n.col,"RdBu"))
+seClass <- classIntervals(pred.res, n.col, style="equal")
+seCol <- findColours(seClass,pal)
+plot(gridDEM,axes=T,col=seCol,pch=15,cex=2,main="3rd Order Trend residual surface")
+plot(river,col="blue",add=T)
+legend("topleft", title = "Residual",
+legend = leglabs(round(seClass$brks, digits = 0)), fill = pal,bty = "o", ncol = 1)
+```
+
+Since elevation decrease rapidly when close to rivers, we found there are sever overestimating problems that exist within those areas. In contrast, the elevation of areas along the mountain ridge is underestimating. This phenomenon indicates a strong spatial autocorrelation exists in residuals. 
+
+## Part II: Variogram Estimation (2 points)
+
+### Task 08
+
+Estimate the variogram function based on the error component at the sampling locations from Part I. Show the necessary plots and interpret them by exploring possible anisotropy, range, sill and nugget effects.
+
+```{r fig.height=8, fig.width=10, message=FALSE, warning=FALSE}
+library(gstat)
+samplePoints$sampleRes <- residuals(lmTrend3)     # add residuals to sampleDEM
+gPred <- gstat(id="simKrig", formula=sampleRes~1, beta=0, data=samplePoints)
+
+## Select final variogram for simple kriging of residuals
+varioFinal <- variogram(gPred, cutoff=150000, width=2000) # alternative: variogram(sampleRes~1,sampleDEM)
+varioFit <- fit.variogram(varioFinal,model=vgm(model="Mat",range=150000,nugget=50)) 
+plot(varioFinal,model=varioFit)
+```
+
+```{r}
+varioFit
+cat("Global variance is",var(samplePoints$sampleRes))
+```
+
+The fitted variogram has a nugget effect of 2.88, a sill value of 595.18, and a range of 15744.31 meters. It means the distance beyond 15744 meters, the elevation between two places would not have any spatial relationship in our model. And the sill value is close to the variance of the sample points.
+
+## Part III: Kriging Interpolation of the error component (3 points)
+
+### Task 09
+
+Predict the error component by Kriging for all locations. Justify your choice of the Kriging model. Map the surface of the predicted error component with an appropriate color ramp. (1.5 point)
+
+```{r}
+## Predict the residuals
+gPred <- gstat(id="simKrig",gPred, model=varioFit)
+predSimKrig <- predict(gPred, model=varioFit, newdata=gridDEM) # alternative: krige(sampleRes~1,sampleDEM, gridDEM, model=varioFit)
+
+## Predicted Kriging residuals
+predRes <- predSimKrig$simKrig.pred      # Kriging cell residual prediction
+```
+```{r}
+hist(predRes)
+```
+
+```{r}
+biPolarColorRamp <- function(varName,pos.breaks=4,neg.breaks=pos.breaks) {
+  require(RColorBrewer); require(classInt)
+  ## define breaks and color assignment
+  q.neg.breaks <- classIntervals((varName[varName < 0]), n=neg.breaks, style="quantile")
+  q.pos.breaks <- classIntervals((varName[varName > 0]), n=pos.breaks, style="quantile")
+  qBreaks <- c(q.neg.breaks$brks[-(neg.breaks+1)],0,q.pos.breaks$brks[-1])     # combine neg and pos over zero
+  
+  pal.neg <- brewer.pal(neg.breaks, "Blues")
+  pal.pos <- brewer.pal(pos.breaks, "Reds")
+  colPal <- c(rev(pal.neg),pal.pos)                                                # combine palettes
+  
+  mapCol <- colPal[findInterval(varName,qBreaks,rightmost.closed=T)]
+  return(list(mapCol=mapCol,qBreaks=qBreaks,colPal=colPal))
+} # end:biPolarColorRamp
+```
+
+**Map Kriging residuals**
+
+```{r fig.height=8, fig.width=12}
+library(RColorBrewer)
+colRamp <- biPolarColorRamp(predRes, pos.breaks=4)
+plot(gridDEM, axes=T, col=colRamp$mapCol, pch=15, cex=1)
+plot(river,col="blue",add=T)
+plot(samplePoints,col="green",add=T)
+legend("topright", title="Residuals", legend=leglabs(round(colRamp$qBreaks,2)),
+       fill=colRamp$colPal, bg="white",ncol=1)
+title("Predicted Simple Kriging Residuals")
+```
+
+Simple Kriging was used in our plot because the mean value of the residual surface is known. After the 1st component has been removed in the dataset by the 3rd order trend surface, the mean value of residuals should be 0.
+
+### Task 10
+Estimate the uncertainty of the error component for all locations. Map the uncertainty surface with an appropriate color ramp. (1.5 point)
+
+```{r fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
+## Map kriging prediciton standard error
+seRes <- sqrt(predSimKrig$simKrig.var)       # Standard errors of Kriging Residuals
+
+seHist<- hist(seRes)
+breakptsSe <- seHist$breaks
+nclSe <- length(breakptsSe)-1
+palSe <- rev(heat.colors(nclSe))
+colsSe <- palSe[findInterval(seRes,
+                             breakptsSe,rightmost.closed=T)]
+plot(gridDEM, axes=T, col=colsSe, pch=15,cex=1)
+plot(river,col="blue",add=T)
+plot(samplePoints,col="green",pch = 5,add=T)
+legend("topright", title="Predicted DEM",legend=leglabs(round(breakptsSe,2)),
+       fill=palSe,bg="white",ncol=1)
+title("Standard Errors of Kriging Residuals")
+```
+
+## Part IV: Combining Frist and Second Order Components (3 points)
+
+### Task 11
+Combine the predicted trend-surface with the predicted error component to obtain the overall predicted DEM surface. Map this predicted surface with a proper color ramp. (1 point)
+
+```{r fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
+fitTot <- predFit+predRes                          # Total predicted cell value
+seTot <- sqrt(predSe.3^2+predSimKrig$simKrig.var)    # Total cell prediction standard error
+
+## Map overall prediciton surface
+fitHist<- hist(fitTot,freq=F)
+lines(density(gridDEM$ELEVATION),col="red",lwd=2)
+breakptsFit <- fitHist$breaks
+nclFit <- length(breakptsFit)-1
+palFit <- terrain.colors(nclFit)
+colsFit <- palFit[findInterval(fitTot,
+                               breakptsFit,rightmost.closed=T)]
+```
+```{r fig.height=10, fig.width=14}
+plot(gridDEM, axes=T, col=colsFit, pch=15,cex=1)
+plot(river,col="blue",add=T)
+plot(samplePoints,col="red",add=T)
+legend("topright", title="Predicted DEM",legend=leglabs(round(breakptsFit,2)),
+       fill=palFit,bg="white",ncol=1)
+title("Prediction Surface: Trend (3rd) plus Kriging Residuals")
+```
+
+### Task 12
+Combined the trend-surface prediction uncertainty with the kriging uncertainty in the standard deviation scale. Map the uncertainty surface with a proper color ramp. (1 point)
+
+```{r include=FALSE}
+## Map overall prediciton standard error
+seHist<- hist(seTot)
+breakptsSe <- seHist$breaks
+nclSe <- length(breakptsSe)-1
+palSe <- rev(heat.colors(nclSe))
+colsSe <- palSe[findInterval(seTot,
+                             breakptsSe,rightmost.closed=T)]
+```
+```{r fig.height=10, fig.width=14, paged.print=FALSE}
+plot(gridDEM, axes=T, col=colsSe, pch=15,cex=1)
+plot(river,col="blue",add=T)
+plot(samplePoints,col="red",add=T)
+legend("topright", title="Prediction STD. Error",legend=leglabs(round(breakptsSe,2)),
+       fill=palSe,bg="white",ncol=1)
+title("Prediction Standard Errors of 3rd Order DEM Surface plus Kriging Residuals")
+```
+
+### Task 13
+Calculate the root mean squared error of your overall predicted DEM values by comparing it against the observed DEM value of the Kansas topographic surface. (1 point)
+
+```{r}
+predError <- gridDEM$ELEVATION - fitTot
+(RMSETotal <- sqrt(sum(predError^2)/length(predError)))
+```
+
+```{r fig.height=10, fig.width=14}
+n.col <- 5
+pal <- rev(brewer.pal(n.col,"RdBu"))
+seClass <- classIntervals(predError, n.col, style="equal")
+seCol <- findColours(seClass,pal)
+plot(gridDEM,axes=T,col=seCol,pch=15,cex=2,
+main="Prediciton Error of 3rd Order Trends with Kriging Residuals Model")
+plot(river,col="blue",add=T)
+legend("topleft", title = "Prediction Error",
+legend = leglabs(round(seClass$brks, digits = 0)), fill = pal, bty = "o", ncol = 1)
+```
+

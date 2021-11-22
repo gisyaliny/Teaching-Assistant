@@ -1,0 +1,204 @@
+---
+title: "Lab02: Multiple Regression Analysis, Factors and Interaction Effects"
+author: "Yalin Yang"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: no
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+--- 
+
+# Task 1
+
+**Partial Regression Coefficient [2 points]**
+Use the `CONCORD1.SAV` file for this task. You will demonstrate that in multiple regression the partial effect of an independent variable is free from any linear effects of the remaining independent variables in a regression model.
+
+## Task 1.1
+Run the multiple model `water81~income+water80+educat` and interpret its regression coefficients. [0.5 points]
+
+```{r}
+concord <- foreign::read.spss("Concord1.sav ", to.data.frame= TRUE)
+lm1<- lm(water81 ~ income + water80 + educat, data = concord)
+summary(lm1)
+```
+
+The intercept and all regression coefficients are significant in this model. **Income** and **water80** have positive effects on **water81**, however **educat** has a negative influence on **water81**. 
+When income increases onethousand dollars, the water81 consumption increases 24.7 $ft^3$ units because affluent people have more money to support high water consumption. When water80 increases one $ft^3$, water81 increases by 0.59 $ft^3$. In other words, water consumption in 1981 is positively correlated the water consumption in the previous year.The water consumption in the previous year can be considered as the baseline demand not captured by the other variable in the model. Higher educated people tend to consume less water because they are concerned with saving water either because of environmental considerations or because they are better informed about saving water and, therefore, reduce their water bills. Thus, if the household head has one more year of education, the water consumption in 1981 decreases 49.9 $ft^3$, Overall, 62% of the variation in water81 is explained by the independent variables.
+
+## Task 1.2
+
+Calculate the residuals of the two models [a] `water81~income+water80` and [b] `educat~income+water80`. *What are these residuals specifically measuring?* [0.5 points]
+
+[a] water81~income+water80
+```{r}
+lm2 <- lm(water81~income+water80, data=concord)
+summary(lm2)
+```
+
+[b] educat~income+water80
+```{r}
+lm3 <- lm(educat~income+water80, data=concord)
+summary(lm3)
+```
+
+Residuals of model [a] and model [b] measure the unexplained variations of water81 and educat, respectively, after controlling for the influence from income and water80. We can observe the regression coefficients of income have significant positive effects in both the model [a] and the model [b]. **This positive confounding correlation between educat and income causes educat in a bivariate model having a positive effect on water81 compared to the multiple model.** To solve this problem, we need to control for the effect of the confounding variable income to get the pure negative effect of educat
+
+## Task 1.3
+Generate the partial regression leverage scatterplot of the water residuals against the education residuals. Make sure to use properly labeled axes. *Briefly interpret the scatterplot. [0.5 points]*
+
+```{r fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
+library(car)
+scatterplot(resid(lm2)~resid(lm3), xlab="Education Residuals",
+ylab="Water Residuals", main="Partial Regression Leverage Scatterplot",
+pch=1, smooth=list(span = 0.35,lty.smooth=1, col.smooth="red", col.var="red"),
+                  regLine=list(col="green"))
+```
+
+The water residuals and education residuals have a negative relationship. When education residuals increase, the water residuals decrease.
+
+## Task 1.4
+Estimate a regression model of the water residuals on the education residuals and compare its estimate slope coefficient against the slope coefficient for educat of the multiple model from task 1.1. *Why are you allowed to suppress the intercept in this model? [0.5 points]*
+
+```{r}
+lm4 <- lm(resid(lm2)~resid(lm3))
+summary(lm4)
+```
+
+The estimate slope coefficient in this model and the slope coefficient for **educat** of the multiple model from task 1.1 are identical because both models control the confounding effect of **income**. The intercept can be suppressed **because the mean of both residual vectors is zero**, i.e., they are centered around zero. Therefore, the **origin point (0,0) is on the regression line**.
+
+# Task 2
+**A Multiple Regression Model with Factors and Partial F-test [4 points]**
+
+## Task 2.1 
+ Use common sense arguments how these four metric variables will influence the provincial fertility rates. Use one or two sentences per explanation, and formulate one or two-sided null and alternative hypotheses based on your explanation. Format everything in at table. [0.5 points]
+![alt text](./Hypothesis.png "Hypothesis")
+
+## Task 2.2
+Generate a scatterplot matrix showing the dependent variable and the four metric independent variables. *Briefly interpret the scatterplot matrix. [0.5 points]*
+```{r fig.height=10, fig.width=15}
+provItaly <- foreign::read.dbf("provinces.dbf")
+car::scatterplotMatrix(~TOTFERTRAT+ILLITERRAT+FEMMARAGE+DIVORCERAT+TELEPERFAM, data=provItaly,
+main="Relationship between total fertility rate and a set of exogenous variables",
+pch=1, smooth=list(span = 0.35,lty.smooth=1, col.smooth="red", col.var="red"),
+regLine=list(col="green"))
+```
+
+[a] Distributional characteristics: The distributions of the dependent variable and the four independent variables are unimodal. **TOTFERTRAT, DIVORCERAT**, and **ILLITERRAT** are positively skewed, and **FEMMARAGE** and **TELEPERFAM** are negatively skewed.
+[b] Y-X relationships: **FEMMARAGE, DIVORCERAT**, and **TELEPERFAM** have strong negative effects on **TOTFERTRAT**. However, **ILLITERRAT** has a positive relationship with **TOTFERTRAT**.
+[c] Positive X-X relationships: **FEMMARAGE-DIVORCERAT, FEMMARAGE-TELEPERFAM,** and **DIVORCERAT-TELEPERFAM** have positive relationships.
+[d] Negative X-X relationships: **FEMMARAGE-ILLITERRAT, DIVORCERAT-ILLITERRAT,** and **ILLITERRAT-TELEPERFAM** have negative relationships.
+
+## Task 2.3
+Run a base model multiple regression with the four metric variables to explain the variation of the fertility rates. Interpret this model [a] in the light of your earlier stated hypotheses in task 2.1, [b] the significances of the estimate regression coefficients and [c] the goodness of fit. [0.5 points]
+
+```{r}
+lm1<- lm(TOTFERTRAT~ ILLITERRAT+ FEMMARAGE+ DIVORCERAT+ TELEPERFAM, data=provItaly)
+summary(lm1)
+```
+
+All independent variables exhibit a relationship with the dependent variable **as stated by the one-sided alternative hypotheses in task 2.1.**  
+All regression coefficients are significantly different from zero at an error probability of $\alpha = 0.05$. **Since the reported error probabilities are associated with two-sided tests; for one-sided tests they need to be divided by 2. **
+The overall goodness of fit of this model is high ($R_{adj}^2 = 0.8012$)
+
+## Task 2.4
+
+Calculate the standardized beta-coefficients for the multiple model in task 2.3. Rank the independent variables according to the absolute strength of their effects on the fertility rates and plot the beta coefficients with the `coefplot( )` function. Use proper options for the `coefplot( )`function. [1 point]
+
+```{r}
+prov <- foreign::read.dbf("provinces.dbf")
+prov <- prov[,13:17]
+prov <- as.data.frame(scale(prov))
+beta.lm <- lm(TOTFERTRAT~., data=prov)
+summary(beta.lm)
+```
+```{r fig.height=8, fig.width=12}
+coefplot::coefplot(beta.lm, sort="magnitude", intercept=F)
+```
+
+The influence strengths of the independent variables on the variation of the dependent variable are:**DIVORCERAT < ILLITERRAT < FEMMARAGE < TELEPERFAM.**
+
+## Task 2.5
+Run five separate regressions on the **[a] independent variables and [b] the fertility rates using the factor REGION as independent variable**
+Does the REGION factor explain the variation of the four independent variables as well as the fertility rates, i.e., is this factor highly correlated with other variables? [0.5 points]
+
+```{r}
+lm2 <-lm(cbind(TOTFERTRAT,ILLITERRAT,FEMMARAGE,DIVORCERAT,TELEPERFAM)~REGION,data=provItaly)
+summary(lm2)
+```
+Region is a significant variable in all five models. It can explain the 42.3% variation of DIVORCERAT, 74.85% variation of ILLITERRAT, 62.88% variation of FEMMARAGE, 53.06% variation of TELEPERFAM, and 74.09% variation of TOTFERTRAT. 
+**In other words, Region is highly correlated with the dependent variable and all four independent variables.**
+
+## Task 2.6
+
+Run the multiple regression model with the four metric variables plus the REGION factor to explain the variation of the fertility rates.
+Speculate in an informed way why some independent metric variables are no longer significant? [0.5 points]
+```{r}
+lm3 <- lm(TOTFERTRAT~FEMMARAGE+DIVORCERAT+ILLITERRAT+TELEPERFAM+REGION,data=provItaly)
+summary(lm3)
+```
+
+DIVORCERAT, ILLITERRAT, and TELEPERFAM are no longer significant in this model. And the significance of FEMMARAGE also decreases dramatically. 
+**This drop in the significance is induced by the high correlation of these variables with the factor REGION which now also captures most of the variability in the dependent variable TOTFERTRAT.** A high degree of multicollineary is present in the independent variables.
+
+
+## Task 2.7
+Use a partial F-test to check whether the model in task 2.6 has improved the model fit of the base model in task 2.3 significantly. [0.5 points]
+That is, test the null hypothesis: $H_0: \beta_{Region1} = \beta_{Region2} = \beta_{Region3} = ... = \beta_{RegionJ} = 0$ against the alternative hypothesis is $H_1:\beta_{RegionJ} \neq 0$ for at least one $J \in{1,2, … , J}$
+
+```{r}
+anova(lm3, lm1)
+```
+
+The p-value (0.001743) is substantially smaller than 0.05, thus the null hypothesis can be rejected. We can conclude that the effect of the factor REGION is a significantly different from zero and the model in task 2.6 has improved the model fit of the base model in task 2.3 significantly
+
+# Task 3
+**Identification of the Underlying Model Structure [6 points]**
+
+Use the workspace ModelSpecs.RData for this task. It contains the six data-frames mod1 to mod6.
+Each data-frame is comprised of three variables: y for the dependent variables, g for a binary factor, and x for a metric variable. Each of these data-frames is best statistically described by one of these competing models:
+
+![alt text](./models.png  'Models')
+
+For each of the data-frame generate an informative scatterplot showing the regression regimes for both
+groups of observations. You can employ the syntax:
+$$
+car::scatterplot(y \sim x|g,smoother=F,boxplots="xy",data=mod?,main="Model?")
+$$
+Then identify which of the competing model structures best describes the given data-frame. If several competing model structures seem to be reasonably relevant then try to eliminate inferior models using by looking for statistically superior $R_{adjusted}^2$ , non-significant coefficients’ $t-test$ and **nested partial F-tests.** **. Provide a rational for your model selection.**
+
+## Task 3.1
+Identify the underlying model structure for mod1. [1 point]
+
+```{r}
+load('ModelSpecs.Rdata')
+summary_model <- function(mod){
+  
+  full.model <- lm(y~g*x, data=mod)
+  Intercept.model <- lm(y~g+x, data=mod)
+  slope.model <- lm(y~g:x, data=mod)
+  means.model <- lm(y~g,data=mod)
+  plain.model <- lm(y~x, data=mod)
+  model_lst <- list(full.model,Intercept.model,slope.model,means.model,plain.model)
+  model_summary <- lapply(model_lst, summary)
+  r_square_lst <- function(a) {return(a$adj.r.squared)}
+  model_summary[[6]] <- as.data.frame(lapply(model_summary, r_square_lst), 
+    col.names = c('full.model', 'Intercept.model','slope.model','means.model','plain.model'))
+  model_summary[[7]] <- model_lst
+  return(model_summary)
+}
+```
+
+```{r fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
+car::scatterplot(y~x|g,smoother=F,boxplots="xy",data=mod6,main="Model6")
+```
+
+```{r}
+(mod1_summary <- summary_model(mod6))[[1]]
+```
+

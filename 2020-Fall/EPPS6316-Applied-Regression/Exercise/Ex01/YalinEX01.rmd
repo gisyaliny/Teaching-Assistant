@@ -1,0 +1,32 @@
+
+
+```{r}
+library(rgdal)
+library(TexMix)
+#Get polygons of neighboring countries
+neig.shp <- readOGR(dsn="./Italy",layer = "Neighbors", integer64 = "allow.loss")
+#Get polygons of Italy provinces
+Italy.shp <- readOGR(dsn="./Italy",layer = "Provinces", integer64 = "allow.loss")
+Italy.bbox <- bbox(Italy.shp)
+plot(neig.shp,axes = T,col=grey(0.9),border = "white", xlim=Italy.bbox[1,], ylim=Italy.bbox[2,])
+mapColorQual(as.factor(Italy.shp$REGION), Italy.shp, map.title="Region Map of Italy", legend.title = "Regions",add.to.map=T)
+```
+
+```{r}
+plot(neig.shp,axes=T,col=grey(0.9),border="white",
+xlim=Italy.bbox[1,], ylim=Italy.bbox[2,])
+# addToMap=T over-plots provinces over neighbors
+mapColorRamp(Italy.shp$TOTFERTRAT,Italy.shp, breaks=7,
+map.title="Italy Fertility Rate ", legend.title="Fertility Rate",add.to.map=T, legend.cex=0.7)
+```
+
+```{r}
+Italy.shp$logMigRatio <- log(Italy.shp$INFLOW/Italy.shp$OUTFLOW)
+hist(Italy.shp$logMigRatio)
+plot(neig.shp,axes=T,col=grey(0.9),border="white",xlim=Italy.bbox[1,], ylim=Italy.bbox[2,])
+sum(Italy.shp$logMigRatio <= 0)
+sum(Italy.shp$logMigRatio >= 0)
+mapBiPolar(Italy.shp$logMigRatio, Italy.shp, neg.breaks=3, pos.breaks=5, break.value=0,
+map.title="Italy Migration Ratio", legend.title="Ratio",add.to.map=T, legend.cex=0.7)
+```
+

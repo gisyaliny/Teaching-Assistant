@@ -1,0 +1,74 @@
+---
+title: "SampleAnswer01"
+author: "YalinYang"
+date: "2020/1/27"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+---
+
+## Task 1: Cluster identification [2 points]
+
+Open the file ClusteredPoints.dbf to identify bivariate normal distributed clusters is this dataset with the function Mclust( ).
+
+1.1	Estimate the optimal number of clusters in this dataset [0.25 points]
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd('G:\\UTD_Classes\\2020Spring\\GISC7360_Pattern_Analysis\\Lab01')
+library(foreign)
+library(mclust)
+ClusterP <- read.dbf('./ClusteredPoints.dbf')
+p.Mclust <- Mclust(ClusterP, G=c(3,4,5), modelNames="VVV")
+summary(p.Mclust)
+```
+1.2	Generate a plot of the estimated classification [0.25 points]
+
+```{r}
+plot(p.Mclust, what = "classification")
+plot(p.Mclust,what = "BIC")
+```
+
+1.3	Generate a plot of the estimated uncertainty of assigning a point to a particular cluster and interpret the plot. [0.25 points]
+
+```{r}
+plot(p.Mclust, what = "uncertainty")
+```
+
+1.4	Report in a table the estimate number of points in a cluster and the cluster centroids. [0.25 points] 
+
+```{r}
+df1 <- data.frame(p.Mclust$parameters$mean)
+colnames(df1) <- table(p.Mclust$classification)
+(df1)
+```
+
+
+```{r}
+library(sp)
+Shape <- rgdal::readOGR(dsn="./MyStudyArea/MyFourRegions.shp",integer64="warn.loss")
+coord <- Shape@polygons[[1]]@Polygons[[1]]@coords
+plot(Shape, axes=T, asp=1)
+points(coord,col="orange",pch=20, cex=2)
+points(coordinates(Shape),col="red",pch=1, cex=1.5) # red circle 
+box()
+```
+```{r}
+npts <-nrow(coord)
+subCentArea <- matrix(NA, nrow = npts-1, ncol=3)   # 1:=xCentroid, 2:=yCentroid, 3:=Area
+for (i in 1:(npts-1)){
+  subCentArea[i,1] <- coord[i,1] + coord[i+1,1]
+  subCentArea[i,2] <- coord[i,2] + coord[i+1,2]
+  subCentArea[i,3] <- (coord[i,1]*coord[i+1,2] - coord[i+1,1]*coord[i,2])
+} # end::for
+A <- sum(subCentArea[,3])/2                        # depending on direction may have wrong sign
+cat("Area:", A)
+## Center of Gravity: identical to Shape@polygons[[1]]@labpt
+cX <- sum(subCentArea[,1]*subCentArea[,3])/(6*A)
+cY <- sum(subCentArea[,2]*subCentArea[,3])/(6*A)
+plot(Shape, axes=T, asp=1)
+points(cbind(cX,cY), col="blue", pch=3, cex=2)            # blue cross
+
+```
+

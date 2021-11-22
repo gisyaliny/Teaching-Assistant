@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<meta name="author" content="Michael Tiefelsdorf &amp; Xiaojun Pu" />
+
+<meta name="date" content="2019-04-23" />
+
+<title>Hybrid Spatial Moving Average Logistic Regression</title>
+
+
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+div.sourceCode { overflow-x: auto; }
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+td.sourceCode { padding-left: 5px; }
+code > span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code > span.dt { color: #902000; } /* DataType */
+code > span.dv { color: #40a070; } /* DecVal */
+code > span.bn { color: #40a070; } /* BaseN */
+code > span.fl { color: #40a070; } /* Float */
+code > span.ch { color: #4070a0; } /* Char */
+code > span.st { color: #4070a0; } /* String */
+code > span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code > span.ot { color: #007020; } /* Other */
+code > span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code > span.fu { color: #06287e; } /* Function */
+code > span.er { color: #ff0000; font-weight: bold; } /* Error */
+code > span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+code > span.cn { color: #880000; } /* Constant */
+code > span.sc { color: #4070a0; } /* SpecialChar */
+code > span.vs { color: #4070a0; } /* VerbatimString */
+code > span.ss { color: #bb6688; } /* SpecialString */
+code > span.im { } /* Import */
+code > span.va { color: #19177c; } /* Variable */
+code > span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code > span.op { color: #666666; } /* Operator */
+code > span.bu { } /* BuiltIn */
+code > span.ex { } /* Extension */
+code > span.pp { color: #bc7a00; } /* Preprocessor */
+code > span.at { color: #7d9029; } /* Attribute */
+code > span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code > span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code > span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+</style>
+
+
+
+<link href="data:text/css;charset=utf-8,body%20%7B%0Abackground%2Dcolor%3A%20%23fff%3B%0Amargin%3A%201em%20auto%3B%0Amax%2Dwidth%3A%20700px%3B%0Aoverflow%3A%20visible%3B%0Apadding%2Dleft%3A%202em%3B%0Apadding%2Dright%3A%202em%3B%0Afont%2Dfamily%3A%20%22Open%20Sans%22%2C%20%22Helvetica%20Neue%22%2C%20Helvetica%2C%20Arial%2C%20sans%2Dserif%3B%0Afont%2Dsize%3A%2014px%3B%0Aline%2Dheight%3A%201%2E35%3B%0A%7D%0A%23header%20%7B%0Atext%2Dalign%3A%20center%3B%0A%7D%0A%23TOC%20%7B%0Aclear%3A%20both%3B%0Amargin%3A%200%200%2010px%2010px%3B%0Apadding%3A%204px%3B%0Awidth%3A%20400px%3B%0Aborder%3A%201px%20solid%20%23CCCCCC%3B%0Aborder%2Dradius%3A%205px%3B%0Abackground%2Dcolor%3A%20%23f6f6f6%3B%0Afont%2Dsize%3A%2013px%3B%0Aline%2Dheight%3A%201%2E3%3B%0A%7D%0A%23TOC%20%2Etoctitle%20%7B%0Afont%2Dweight%3A%20bold%3B%0Afont%2Dsize%3A%2015px%3B%0Amargin%2Dleft%3A%205px%3B%0A%7D%0A%23TOC%20ul%20%7B%0Apadding%2Dleft%3A%2040px%3B%0Amargin%2Dleft%3A%20%2D1%2E5em%3B%0Amargin%2Dtop%3A%205px%3B%0Amargin%2Dbottom%3A%205px%3B%0A%7D%0A%23TOC%20ul%20ul%20%7B%0Amargin%2Dleft%3A%20%2D2em%3B%0A%7D%0A%23TOC%20li%20%7B%0Aline%2Dheight%3A%2016px%3B%0A%7D%0Atable%20%7B%0Amargin%3A%201em%20auto%3B%0Aborder%2Dwidth%3A%201px%3B%0Aborder%2Dcolor%3A%20%23DDDDDD%3B%0Aborder%2Dstyle%3A%20outset%3B%0Aborder%2Dcollapse%3A%20collapse%3B%0A%7D%0Atable%20th%20%7B%0Aborder%2Dwidth%3A%202px%3B%0Apadding%3A%205px%3B%0Aborder%2Dstyle%3A%20inset%3B%0A%7D%0Atable%20td%20%7B%0Aborder%2Dwidth%3A%201px%3B%0Aborder%2Dstyle%3A%20inset%3B%0Aline%2Dheight%3A%2018px%3B%0Apadding%3A%205px%205px%3B%0A%7D%0Atable%2C%20table%20th%2C%20table%20td%20%7B%0Aborder%2Dleft%2Dstyle%3A%20none%3B%0Aborder%2Dright%2Dstyle%3A%20none%3B%0A%7D%0Atable%20thead%2C%20table%20tr%2Eeven%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0A%7D%0Ap%20%7B%0Amargin%3A%200%2E5em%200%3B%0A%7D%0Ablockquote%20%7B%0Abackground%2Dcolor%3A%20%23f6f6f6%3B%0Apadding%3A%200%2E25em%200%2E75em%3B%0A%7D%0Ahr%20%7B%0Aborder%2Dstyle%3A%20solid%3B%0Aborder%3A%20none%3B%0Aborder%2Dtop%3A%201px%20solid%20%23777%3B%0Amargin%3A%2028px%200%3B%0A%7D%0Adl%20%7B%0Amargin%2Dleft%3A%200%3B%0A%7D%0Adl%20dd%20%7B%0Amargin%2Dbottom%3A%2013px%3B%0Amargin%2Dleft%3A%2013px%3B%0A%7D%0Adl%20dt%20%7B%0Afont%2Dweight%3A%20bold%3B%0A%7D%0Aul%20%7B%0Amargin%2Dtop%3A%200%3B%0A%7D%0Aul%20li%20%7B%0Alist%2Dstyle%3A%20circle%20outside%3B%0A%7D%0Aul%20ul%20%7B%0Amargin%2Dbottom%3A%200%3B%0A%7D%0Apre%2C%20code%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0Aborder%2Dradius%3A%203px%3B%0Acolor%3A%20%23333%3B%0Awhite%2Dspace%3A%20pre%2Dwrap%3B%20%0A%7D%0Apre%20%7B%0Aborder%2Dradius%3A%203px%3B%0Amargin%3A%205px%200px%2010px%200px%3B%0Apadding%3A%2010px%3B%0A%7D%0Apre%3Anot%28%5Bclass%5D%29%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0A%7D%0Acode%20%7B%0Afont%2Dfamily%3A%20Consolas%2C%20Monaco%2C%20%27Courier%20New%27%2C%20monospace%3B%0Afont%2Dsize%3A%2085%25%3B%0A%7D%0Ap%20%3E%20code%2C%20li%20%3E%20code%20%7B%0Apadding%3A%202px%200px%3B%0A%7D%0Adiv%2Efigure%20%7B%0Atext%2Dalign%3A%20center%3B%0A%7D%0Aimg%20%7B%0Abackground%2Dcolor%3A%20%23FFFFFF%3B%0Apadding%3A%202px%3B%0Aborder%3A%201px%20solid%20%23DDDDDD%3B%0Aborder%2Dradius%3A%203px%3B%0Aborder%3A%201px%20solid%20%23CCCCCC%3B%0Amargin%3A%200%205px%3B%0A%7D%0Ah1%20%7B%0Amargin%2Dtop%3A%200%3B%0Afont%2Dsize%3A%2035px%3B%0Aline%2Dheight%3A%2040px%3B%0A%7D%0Ah2%20%7B%0Aborder%2Dbottom%3A%204px%20solid%20%23f7f7f7%3B%0Apadding%2Dtop%3A%2010px%3B%0Apadding%2Dbottom%3A%202px%3B%0Afont%2Dsize%3A%20145%25%3B%0A%7D%0Ah3%20%7B%0Aborder%2Dbottom%3A%202px%20solid%20%23f7f7f7%3B%0Apadding%2Dtop%3A%2010px%3B%0Afont%2Dsize%3A%20120%25%3B%0A%7D%0Ah4%20%7B%0Aborder%2Dbottom%3A%201px%20solid%20%23f7f7f7%3B%0Amargin%2Dleft%3A%208px%3B%0Afont%2Dsize%3A%20105%25%3B%0A%7D%0Ah5%2C%20h6%20%7B%0Aborder%2Dbottom%3A%201px%20solid%20%23ccc%3B%0Afont%2Dsize%3A%20105%25%3B%0A%7D%0Aa%20%7B%0Acolor%3A%20%230033dd%3B%0Atext%2Ddecoration%3A%20none%3B%0A%7D%0Aa%3Ahover%20%7B%0Acolor%3A%20%236666ff%3B%20%7D%0Aa%3Avisited%20%7B%0Acolor%3A%20%23800080%3B%20%7D%0Aa%3Avisited%3Ahover%20%7B%0Acolor%3A%20%23BB00BB%3B%20%7D%0Aa%5Bhref%5E%3D%22http%3A%22%5D%20%7B%0Atext%2Ddecoration%3A%20underline%3B%20%7D%0Aa%5Bhref%5E%3D%22https%3A%22%5D%20%7B%0Atext%2Ddecoration%3A%20underline%3B%20%7D%0A%0Acode%20%3E%20span%2Ekw%20%7B%20color%3A%20%23555%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%0Acode%20%3E%20span%2Edt%20%7B%20color%3A%20%23902000%3B%20%7D%20%0Acode%20%3E%20span%2Edv%20%7B%20color%3A%20%2340a070%3B%20%7D%20%0Acode%20%3E%20span%2Ebn%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Efl%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Ech%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Est%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Eco%20%7B%20color%3A%20%23888888%3B%20font%2Dstyle%3A%20italic%3B%20%7D%20%0Acode%20%3E%20span%2Eot%20%7B%20color%3A%20%23007020%3B%20%7D%20%0Acode%20%3E%20span%2Eal%20%7B%20color%3A%20%23ff0000%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%0Acode%20%3E%20span%2Efu%20%7B%20color%3A%20%23900%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%20code%20%3E%20span%2Eer%20%7B%20color%3A%20%23a61717%3B%20background%2Dcolor%3A%20%23e3d2d2%3B%20%7D%20%0A" rel="stylesheet" type="text/css" />
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Hybrid Spatial Moving Average Logistic Regression</h1>
+<h4 class="author"><em>Michael Tiefelsdorf &amp; Xiaojun Pu</em></h4>
+<h4 class="date"><em>2019-04-23</em></h4>
+
+
+
+<p>The code has been tested with the following versions of:</p>
+<ul>
+<li>Microsoft Open R 3.4.0</li>
+<li>‘INLA’ version 17.06.20</li>
+<li>‘INLABMA’ version 0.1-8</li>
+</ul>
+<p>Required package download:</p>
+<ul>
+<li>‘INLA’ can be downloaded from <a href="http://www.r-inla.org/download" class="uri">http://www.r-inla.org/download</a></li>
+<li>‘INLABMA’ is directly available from CRAN</li>
+</ul>
+<p>Updates:</p>
+<ol style="list-style-type: decimal">
+<li>Used actual 1982 white male 50+ years old population at risk downloaded from the U.S. Census Bureau.<br />
+</li>
+<li>Optimized <strong>sma.inla</strong> function: (a) update function call for bio-behaviorial factors, (b) tweaked computation of precision matrix, and added call to library INLA for parallel computation using <em>socket</em> model (SNOW).<br />
+</li>
+<li>Added libraries <strong>doParallel</strong> and <strong>foreach</strong> to allow parallel computation with <em>sockets</em> under all operating systems.<br />
+Parallel computation done with <strong>foreach %dopar%</strong> instead of <em>forking</em> with <strong>mclapply</strong>.<br />
+Note: For larger problems parallelization becomes memory hungry because each<br />
+process uses its individual memory space with all required data objects and libraries.</li>
+</ol>
+<div id="data-preparation" class="section level2">
+<h2>Data Preparation</h2>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">#############################################################################
+## Algorithm: INLA Spatial Moving Average Model
+## Authors: Xiaojun Pu &amp; Michael Tiefelsdorf
+## Note: 1965-1970 SEA-to-SEA migration matrix
+##       1970-1994 white male lung cancer data
+## Date:8/12/2017
+#############################################################################
+<span class="kw">rm</span>(<span class="dt">list=</span><span class="kw">ls</span>(<span class="dt">all=</span><span class="ot">TRUE</span>))
+<span class="kw">library</span>(doParallel); <span class="kw">library</span>(foreach)</code></pre></div>
+<pre><code>R&gt; Loading required package: foreach</code></pre>
+<pre><code>R&gt; Loading required package: iterators</code></pre>
+<pre><code>R&gt; Loading required package: parallel</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(INLA); <span class="kw">library</span>(INLABMA)</code></pre></div>
+<pre><code>R&gt; Loading required package: sp</code></pre>
+<pre><code>R&gt; Loading required package: Matrix</code></pre>
+<pre><code>R&gt; This is INLA_17.06.20 built 2017-06-20 03:42:30 UTC.
+R&gt; See www.r-inla.org/contact-us for how to get help.</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(CancerSEA)</code></pre></div>
+<pre><code>R&gt; Loading required package: maptools</code></pre>
+<pre><code>R&gt; Checking rgeos availability: TRUE</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">## Set the number of available cores for parallel calculations in SNOW
+nOfCores &lt;-<span class="st"> </span><span class="kw">detectCores</span>(<span class="dt">logical=</span><span class="ot">FALSE</span>)
+
+#############################################################
+## Import data
+#############################################################
+<span class="kw">data</span>(cancer);<span class="kw">data</span>(mig)
+
+POPRISK &lt;-<span class="st"> </span>cancer<span class="op">$</span>POPATRISK1982                 <span class="co"># Population at risk</span>
+RawRate &lt;-<span class="st"> </span>cancer<span class="op">$</span>L_WM_P2_CN<span class="op">/</span>POPRISK            <span class="co"># Crude lung cancer rates</span>
+
+<span class="co"># logit offset</span>
+adjusted.prob &lt;-<span class="st"> </span>cancer<span class="op">$</span>L_WM_P2_EX<span class="op">/</span>POPRISK
+logit.adjusted.prob &lt;-<span class="st"> </span><span class="kw">log</span>(adjusted.prob<span class="op">/</span>(<span class="dv">1</span><span class="op">-</span>adjusted.prob))      <span class="co">#offset</span>
+
+<span class="co"># Z-tranformed variables</span>
+cancer<span class="op">$</span>POPDEN &lt;-<span class="st"> </span>cancer<span class="op">$</span>POP1980<span class="op">/</span>cancer<span class="op">$</span>AREA
+cancer<span class="op">$</span>logPOPDEN &lt;-<span class="st"> </span><span class="kw">log</span>(cancer<span class="op">$</span>POPDEN)
+cancer<span class="op">$</span>ZPOPDEN &lt;-<span class="st"> </span>(cancer<span class="op">$</span>logPOPDEN<span class="op">-</span><span class="kw">mean</span>(cancer<span class="op">$</span>logPOPDEN))<span class="op">/</span><span class="kw">sd</span>(cancer<span class="op">$</span>logPOPDEN)
+cancer<span class="op">$</span>ZRAD_MD &lt;-<span class="st"> </span>(cancer<span class="op">$</span>RAD_MD<span class="op">-</span><span class="kw">mean</span>(cancer<span class="op">$</span>RAD_MD))<span class="op">/</span><span class="kw">sd</span>(cancer<span class="op">$</span>RAD_MD)
+cancer<span class="op">$</span>ZTOBACCO &lt;-<span class="st"> </span>(cancer<span class="op">$</span>TOBACCO<span class="op">-</span><span class="kw">mean</span>(cancer<span class="op">$</span>TOBACCO))<span class="op">/</span><span class="kw">sd</span>(cancer<span class="op">$</span>TOBACCO)
+
+## Adjacency matrix
+B &lt;-<span class="st"> </span>spdep<span class="op">::</span><span class="kw">poly2nb</span>(shpSEA, <span class="dt">queen=</span>F)            <span class="co"># extract first order neighbors links</span>
+Adjacency &lt;-<span class="st"> </span>spdep<span class="op">::</span><span class="kw">nb2mat</span>(B, <span class="dt">style=</span><span class="st">&quot;S&quot;</span>)
+
+## Migration matrix
+G &lt;-<span class="st"> </span>mig[ ,<span class="op">-</span><span class="kw">c</span>(<span class="dv">1</span><span class="op">:</span><span class="dv">8</span>)]                             <span class="co"># remove ID and other information</span>
+G &lt;-<span class="st"> </span><span class="kw">t</span>(<span class="kw">as.matrix</span>(G))                            <span class="co"># transpose migration matrix (destinations as rows)</span>
+n &lt;-<span class="st"> </span><span class="kw">nrow</span>(G)
+
+## Calculate minimum and maximum flow matrices
+Gmin &lt;-<span class="st"> </span><span class="kw">matrix</span>(<span class="dv">0</span>,n,n)
+Gmax &lt;-<span class="st"> </span><span class="kw">matrix</span>(<span class="dv">0</span>,n,n)
+<span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="op">:</span>(n<span class="op">-</span><span class="dv">1</span>))
+   <span class="cf">for</span> (j <span class="cf">in</span> (i<span class="op">+</span><span class="dv">1</span>)<span class="op">:</span>n){
+      Gmin[i,j] &lt;-<span class="st"> </span>Gmin[j,i] &lt;-<span class="st"> </span><span class="kw">min</span>(G[i,j],G[j,i])
+      Gmax[i,j] &lt;-<span class="st"> </span>Gmax[j,i] &lt;-<span class="st"> </span><span class="kw">max</span>(G[i,j],G[j,i])
+   }
+
+## different specifications standardized spatial link matrices
+C &lt;-<span class="st"> </span>n<span class="op">/</span><span class="kw">sum</span>(G)<span class="op">*</span>G                                 <span class="co"># C-coding scheme</span>
+<span class="co">#C &lt;- G/rowSums(G)                              # W-coding scheme</span>
+<span class="co">#C &lt;- n/sum(Gmin)*Gmin</span>
+<span class="co">#C &lt;- n/sum(Gmax)*Gmax</span>
+<span class="co">#C &lt;- Adjacency                                 # S-coding schemed adjacancy matrix</span></code></pre></div>
+</div>
+<div id="aspatial-logistic-regression-models" class="section level2">
+<h2>Aspatial logistic regression models</h2>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">############################
+## GLM (Binomial regression)
+############################
+glm1 &lt;-<span class="st"> </span><span class="kw">glm</span>(RawRate <span class="op">~</span><span class="st"> </span>ZRAD_MD <span class="op">+</span><span class="st"> </span><span class="kw">I</span>(ZRAD_MD<span class="op">^</span><span class="dv">2</span>) <span class="op">+</span><span class="st"> </span>ZPOPDEN <span class="op">+</span><span class="st"> </span>ZTOBACCO <span class="op">+</span><span class="st"> </span><span class="kw">offset</span>(logit.adjusted.prob),
+            <span class="dt">family =</span> <span class="st">&quot;binomial&quot;</span>, <span class="dt">data=</span>cancer, <span class="dt">weights=</span>POPRISK)
+<span class="kw">summary</span>(glm1)</code></pre></div>
+<pre><code>R&gt; 
+R&gt; Call:
+R&gt; glm(formula = RawRate ~ ZRAD_MD + I(ZRAD_MD^2) + ZPOPDEN + ZTOBACCO + 
+R&gt;     offset(logit.adjusted.prob), family = &quot;binomial&quot;, data = cancer, 
+R&gt;     weights = POPRISK)
+R&gt; 
+R&gt; Deviance Residuals: 
+R&gt;      Min        1Q    Median        3Q       Max  
+R&gt; -17.2223   -2.8654    0.2524    2.7548   16.5203  
+R&gt; 
+R&gt; Coefficients:
+R&gt;                Estimate Std. Error z value Pr(&gt;|z|)    
+R&gt; (Intercept)  -0.1294919  0.0019320  -67.03   &lt;2e-16 ***
+R&gt; ZRAD_MD      -0.1021092  0.0021675  -47.11   &lt;2e-16 ***
+R&gt; I(ZRAD_MD^2)  0.0196604  0.0009689   20.29   &lt;2e-16 ***
+R&gt; ZPOPDEN       0.1356212  0.0012365  109.68   &lt;2e-16 ***
+R&gt; ZTOBACCO      0.0291160  0.0013225   22.02   &lt;2e-16 ***
+R&gt; ---
+R&gt; Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+R&gt; 
+R&gt; (Dispersion parameter for binomial family taken to be 1)
+R&gt; 
+R&gt;     Null deviance: 29231  on 507  degrees of freedom
+R&gt; Residual deviance: 11570  on 503  degrees of freedom
+R&gt; AIC: 15772
+R&gt; 
+R&gt; Number of Fisher Scoring iterations: 4</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">## effect plot
+eff.GLM.average &lt;-<span class="st"> </span>effects<span class="op">::</span><span class="kw">effect</span>(<span class="st">&quot;ZRAD_MD&quot;</span>,glm1)
+<span class="kw">plot</span>(eff.GLM.average, <span class="dt">xlab=</span><span class="st">&quot;z(Median Radon)&quot;</span>,<span class="dt">ylab=</span><span class="st">&quot;Lung Cancer Rate&quot;</span>,
+     <span class="dt">main=</span><span class="st">&quot;Non-linear Threshold Relationship: Cancer ~ f(Radon)&quot;</span>)</code></pre></div>
+<p><img src="data:image/png;base64,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" /><!-- --></p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">##################################
+## INLA Binomial Regression
+##################################
+## Define INLA formula
+formula.inla &lt;-<span class="st"> </span>L_WM_P2_CN <span class="op">~</span><span class="st"> </span><span class="dv">1</span> <span class="op">+</span><span class="st"> </span>ZRAD_MD <span class="op">+</span><span class="st"> </span><span class="kw">I</span>(ZRAD_MD<span class="op">^</span><span class="dv">2</span>)<span class="op">+</span><span class="st"> </span>ZPOPDEN <span class="op">+</span><span class="st"> </span>ZTOBACCO <span class="op">+</span>
+<span class="st">                             </span><span class="kw">offset</span>(logit.adjusted.prob)
+## Run INLA binomial regression model
+<span class="kw">system.time</span>(model.logistic &lt;-<span class="st"> </span><span class="kw">inla</span>(formula.inla, <span class="dt">family=</span><span class="st">&quot;binomial&quot;</span>, <span class="dt">Ntrials=</span>POPRISK, <span class="dt">data=</span>cancer,
+                                   <span class="dt">control.predictor=</span><span class="kw">list</span>(<span class="dt">compute=</span><span class="ot">TRUE</span>),
+                                   <span class="dt">control.compute=</span><span class="kw">list</span>(<span class="dt">dic=</span><span class="ot">TRUE</span>, <span class="dt">cpo=</span><span class="ot">TRUE</span>)))</code></pre></div>
+<pre><code>R&gt;    user  system elapsed 
+R&gt;    0.34    0.12    0.96</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">round</span>(model.logistic<span class="op">$</span>summary.fixed[,<span class="dv">1</span><span class="op">:</span><span class="dv">5</span>],<span class="dv">3</span>)                       ## INLA regression coefficients</code></pre></div>
+<pre><code>R&gt;                mean    sd 0.025quant 0.5quant 0.975quant
+R&gt; (Intercept)  -0.130 0.002     -0.134   -0.130     -0.126
+R&gt; ZRAD_MD      -0.103 0.002     -0.107   -0.103     -0.099
+R&gt; I(ZRAD_MD^2)  0.020 0.001      0.018    0.020      0.022
+R&gt; ZPOPDEN       0.137 0.001      0.134    0.137      0.139
+R&gt; ZTOBACCO      0.028 0.001      0.026    0.028      0.031</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">model.logistic<span class="op">$</span>dic<span class="op">$</span>dic</code></pre></div>
+<pre><code>R&gt; [1] 15469.43</code></pre>
+</div>
+<div id="define-function-sma.inla" class="section level2">
+<h2>Define function ‘sma.inla’</h2>
+<p>The function ‘sma.inla()’ is used to fit the hybrid spatial moving average model with the Integrated Nested Laplace Approximation (INLA) algorithm. The specification of the function ‘sma.inla()’ follows structure of the function ‘sem.inla()’ from INLABMA package (see Bivand et al., 2015)</p>
+<p>The input parameters of ‘sma.inla()’ are:</p>
+<ul>
+<li><strong>yformula</strong> Formula with the response variable and bio-behaviorial variables. When no bio-behaviorial variables are specified use: ‘y~1’</li>
+<li><strong>Eformula</strong> Formula with environmental variables</li>
+<li><strong>D</strong> Data.frame with the data</li>
+<li><strong>W</strong> Coded spatial link matrix (see Tiefelsdorf et al., 1999)</li>
+<li><strong>rho</strong> Value of the spatial autocorrelation parameter</li>
+<li><strong>idx</strong> Index for the spatial random effects</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">sma.inla &lt;-<span class="st"> </span><span class="cf">function</span> (yformula, <span class="dt">Eformula=</span><span class="ot">NULL</span>, d, W, rho, idx, ...)
+{
+  <span class="kw">library</span>(INLA)                                <span class="co"># Local instance needed for SNOW</span>
+  <span class="co"># define precision matrix</span>
+  IrhoW &lt;-<span class="st"> </span><span class="kw">diag</span>(<span class="kw">nrow</span>(W)) <span class="op">+</span><span class="st"> </span>rho <span class="op">*</span><span class="st"> </span>W
+  <span class="co"># Precision matrix (inverse of covariance matrix)</span>
+  IrhoW2 &lt;-<span class="st"> </span><span class="kw">solve</span>(<span class="kw">tcrossprod</span>(IrhoW))           <span class="co"># slightly faster than solve(IrhoW %*% t(IrhoW))</span>
+  formula &lt;-<span class="st"> </span>yformula
+  d2 &lt;-<span class="st"> </span><span class="kw">model.frame</span>(yformula, d)
+
+  <span class="co"># add environmental variables to formula and data.frame</span>
+  <span class="cf">if</span> (<span class="op">!</span><span class="kw">is.null</span>(Eformula)) {
+    evars &lt;-<span class="st"> </span><span class="kw">as.character</span>(Eformula)[<span class="dv">2</span>]
+    formstr &lt;-<span class="st"> </span><span class="kw">paste</span>(<span class="st">&quot;.~.+&quot;</span>, evars, <span class="dt">sep=</span><span class="st">&quot;&quot;</span>)
+    formula &lt;-<span class="st"> </span><span class="kw">update</span>(formula,<span class="kw">as.formula</span>(formstr))
+    Emat &lt;-<span class="st"> </span><span class="kw">as.matrix</span>(<span class="kw">model.frame</span>(Eformula, d))
+    Edf &lt;-<span class="st"> </span><span class="kw">as.data.frame</span>(IrhoW <span class="op">%*%</span><span class="st"> </span>Emat)     <span class="co"># (I+rho*W)*X_E</span>
+    d2 &lt;-<span class="st"> </span><span class="kw">data.frame</span>(d2,Edf)
+    }
+
+  formula &lt;-<span class="st"> </span><span class="kw">update</span>(formula, . <span class="op">~</span><span class="st"> </span>. <span class="op">+</span><span class="st"> </span><span class="kw">f</span>(idx, <span class="dt">model =</span> <span class="st">&quot;generic0&quot;</span>, <span class="dt">Cmatrix =</span> IrhoW2))
+  <span class="co"># add spatial moving average model</span>
+  res &lt;-<span class="st"> </span><span class="kw">inla</span>(formula, <span class="dt">data =</span> d2, ...)
+  res<span class="op">$</span>logdet &lt;-<span class="st"> </span><span class="kw">as.numeric</span>(<span class="kw">determinant</span>(IrhoW2)<span class="op">$</span>modulus)
+  res<span class="op">$</span>mlik &lt;-<span class="st"> </span>res<span class="op">$</span>mlik <span class="op">+</span><span class="st"> </span>res<span class="op">$</span>logdet<span class="op">/</span><span class="dv">2</span>
+  <span class="kw">return</span>(res)
+}</code></pre></div>
+</div>
+<div id="spatial-logistic-regression-model" class="section level2">
+<h2>Spatial Logistic Regression Model</h2>
+<p>Depending on the used hardware setup expect a run-times between 4 to 30 minutes.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">##########################################
+## INLA Spatial moving average model
+##########################################
+## Index for spatial random effects
+idx&lt;-<span class="dv">1</span><span class="op">:</span>n
+
+## Define search grid for distribution of rho
+C.eval &lt;-<span class="st"> </span><span class="kw">eigen</span>((C<span class="op">+</span><span class="kw">t</span>(C))<span class="op">/</span><span class="dv">2</span>, <span class="dt">symmetric=</span><span class="ot">TRUE</span>, <span class="dt">only.values =</span> <span class="ot">TRUE</span>)<span class="op">$</span>values
+<span class="kw">plot</span>(C.eval, <span class="dt">type=</span><span class="st">&quot;h&quot;</span>, <span class="dt">ylab=</span><span class="st">&quot;Eigenvalue&quot;</span>, <span class="dt">main=</span><span class="st">&quot;Spectrum of Eigenvalues&quot;</span>); <span class="kw">abline</span>(<span class="dt">h=</span><span class="dv">0</span>,<span class="dt">lwd=</span><span class="dv">2</span>)</code></pre></div>
+<p><img src="data:image/png;base64,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" /><!-- --></p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># rho_min = -1/lambda_max and rho_max=-1/lambda_min</span>
+rrho &lt;-<span class="st"> </span><span class="kw">seq</span>(<span class="op">-</span><span class="dv">1</span><span class="op">/</span>C.eval[<span class="dv">1</span>], <span class="op">-</span><span class="dv">1</span><span class="op">/</span>C.eval[n], <span class="dt">length.out=</span><span class="dv">40</span>)  
+
+## Set precision with diffused prior
+zero.variance =<span class="st"> </span><span class="kw">list</span>(<span class="dt">prec=</span><span class="kw">list</span>(<span class="dt">initial =</span> <span class="dv">1</span><span class="op">/</span><span class="dv">100</span>, <span class="dt">fixed=</span><span class="ot">TRUE</span>))
+
+## Get ready for parallel execution of sma.inla
+cl &lt;-<span class="st"> </span><span class="kw">makeCluster</span>(nOfCores)    <span class="co"># Enable all cores in doParallel</span>
+<span class="kw">registerDoParallel</span>(cl)         <span class="co"># May trigger firewall warning in Windows</span>
+
+## Hybrid migration moving average estimation with sma.inla()
+<span class="kw">system.time</span>(
+  smainla &lt;-<span class="st"> </span><span class="kw">foreach</span>(<span class="dt">rho=</span>rrho) <span class="op">%dopar%</span><span class="st"> </span>{
+               <span class="kw">sma.inla</span>(<span class="dt">yformula=</span> L_WM_P2_CN<span class="op">~</span>ZTOBACCO,
+                        <span class="dt">Eformula=</span> <span class="op">~</span>ZRAD_MD<span class="op">+</span><span class="kw">I</span>(ZRAD_MD<span class="op">^</span><span class="dv">2</span>)<span class="op">+</span>ZPOPDEN,
+                        <span class="dt">offset=</span> logit.adjusted.prob,
+                        <span class="dt">d=</span>cancer, <span class="dt">W=</span>C, <span class="dt">rho=</span>rho, <span class="dt">idx=</span>idx,
+                        <span class="dt">family =</span> <span class="st">&quot;binomial&quot;</span>, <span class="dt">Ntrials=</span>POPRISK,
+                        <span class="dt">control.predictor=</span><span class="kw">list</span>(<span class="dt">compute=</span><span class="ot">TRUE</span>),
+                        <span class="dt">control.compute=</span><span class="kw">list</span>(<span class="dt">dic=</span><span class="ot">TRUE</span>, <span class="dt">cpo=</span><span class="ot">TRUE</span>),
+                        <span class="dt">control.inla=</span><span class="kw">list</span>(<span class="dt">print.joint.hyper=</span><span class="ot">TRUE</span>),
+                        <span class="dt">verbose=</span><span class="ot">FALSE</span>)
+             } <span class="co">#end::foreach</span>
+ ) <span class="co">#end::system.time</span></code></pre></div>
+<pre><code>R&gt;    user  system elapsed 
+R&gt;    9.91    3.94  346.07</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">stopCluster</span>(cl)               <span class="co"># Turn clusters off</span>
+
+## Perform complete Bayesian Model Averaging on spatial moving average models
+<span class="kw">system.time</span>(smabma&lt;-<span class="kw">INLABMA</span>(smainla, rrho, <span class="dv">0</span>, <span class="dt">impacts =</span> F))</code></pre></div>
+<pre><code>R&gt;    user  system elapsed 
+R&gt;   16.12    0.01   16.14</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">round</span>(smabma<span class="op">$</span>summary.fixed[,<span class="dv">1</span><span class="op">:</span><span class="dv">5</span>], <span class="dv">3</span>)                             <span class="co"># INLA SMA regression Coefficients</span></code></pre></div>
+<pre><code>R&gt;                mean    sd 0.025quant 0.5quant 0.975quant
+R&gt; (Intercept)  -0.156 0.010     -0.176   -0.156     -0.136
+R&gt; ZTOBACCO      0.009 0.009     -0.007    0.009      0.026
+R&gt; ZRAD_MD      -0.128 0.011     -0.149   -0.128     -0.106
+R&gt; I(ZRAD_MD^2)  0.027 0.005      0.017    0.027      0.037
+R&gt; ZPOPDEN       0.125 0.008      0.109    0.125      0.142</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">smabma<span class="op">$</span>rho[<span class="dv">2</span><span class="op">:</span><span class="dv">4</span>]                                                  <span class="co"># display the distribution of rho</span></code></pre></div>
+<pre><code>R&gt; $mean
+R&gt; [1] 0.1177105
+R&gt; 
+R&gt; $sd
+R&gt; [1] 0.05693398
+R&gt; 
+R&gt; $quantiles
+R&gt; quant0.025  quant0.25   quant0.5  quant0.75 quant0.975 
+R&gt; 0.01044929 0.07722739 0.11641368 0.15681493 0.23035550</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># check DIC</span>
+smabma<span class="op">$</span>dic<span class="op">$</span>dic</code></pre></div>
+<pre><code>R&gt; [1] 5177.8</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># plot estimated parameters</span>
+old.par &lt;-<span class="st"> </span><span class="kw">par</span>(<span class="dt">mfrow=</span><span class="kw">c</span>(<span class="dv">2</span>,<span class="dv">3</span>))
+  <span class="kw">plot</span>(smabma<span class="op">$</span>marginals.fixed<span class="op">$</span><span class="st">&quot;(Intercept)&quot;</span>, <span class="dt">type=</span><span class="st">&quot;l&quot;</span>, <span class="dt">cex.lab=</span><span class="fl">1.3</span>,
+       <span class="dt">xlab=</span><span class="kw">expression</span>(beta[<span class="dv">0</span>]), <span class="dt">ylab=</span><span class="kw">expression</span>(<span class="kw">tilde</span>(p)(<span class="kw">paste</span>(beta[<span class="dv">0</span>], <span class="st">&quot;|&quot;</span>, y))))
+  <span class="kw">abline</span>(<span class="dt">h=</span><span class="dv">0</span>, <span class="dt">lty=</span><span class="dv">5</span>)
+  <span class="kw">plot</span>(smabma<span class="op">$</span>marginals.fixed<span class="op">$</span><span class="st">&quot;ZRAD_MD&quot;</span>, <span class="dt">type=</span><span class="st">&quot;l&quot;</span>, <span class="dt">cex.lab=</span><span class="fl">1.3</span>,
+       <span class="dt">xlab=</span><span class="kw">expression</span>(beta[ZRAD_MD]), <span class="dt">ylab=</span><span class="kw">expression</span>(<span class="kw">tilde</span>(p)(<span class="kw">paste</span>(beta[ZRAD_MD], <span class="st">&quot;|&quot;</span>, y))))
+  <span class="kw">abline</span>(<span class="dt">h=</span><span class="dv">0</span>, <span class="dt">lty=</span><span class="dv">5</span>)
+  <span class="kw">plot</span>(smabma<span class="op">$</span>marginals.fixed<span class="op">$</span><span class="st">&quot;I(ZRAD_MD^2)&quot;</span>, <span class="dt">type=</span><span class="st">&quot;l&quot;</span>, <span class="dt">cex.lab=</span><span class="fl">1.3</span>,
+       <span class="dt">xlab=</span><span class="kw">expression</span>(beta[ZRAD_MD<span class="op">^</span><span class="dv">2</span>]), <span class="dt">ylab=</span><span class="kw">expression</span>(<span class="kw">tilde</span>(p)(<span class="kw">paste</span>(beta[ZRAD_MD<span class="op">^</span><span class="dv">2</span>], <span class="st">&quot;|&quot;</span>, y))))
+  <span class="kw">abline</span>(<span class="dt">h=</span><span class="dv">0</span>, <span class="dt">lty=</span><span class="dv">5</span>)
+  <span class="kw">plot</span>(smabma<span class="op">$</span>marginals.fixed<span class="op">$</span><span class="st">&quot;ZPOPDEN&quot;</span>, <span class="dt">type=</span><span class="st">&quot;l&quot;</span>, <span class="dt">cex.lab=</span><span class="fl">1.3</span>,
+       <span class="dt">xlab=</span><span class="kw">expression</span>(beta[ZPOPDEN]), <span class="dt">ylab=</span><span class="kw">expression</span>(<span class="kw">tilde</span>(p)(<span class="kw">paste</span>(beta[ZPOPDEN], <span class="st">&quot;|&quot;</span>, y))))
+  <span class="kw">abline</span>(<span class="dt">h=</span><span class="dv">0</span>, <span class="dt">lty=</span><span class="dv">5</span>)
+  <span class="kw">plot</span>(smabma<span class="op">$</span>marginals.fixed<span class="op">$</span><span class="st">&quot;ZTOBACCO&quot;</span>, <span class="dt">type=</span><span class="st">&quot;l&quot;</span>, <span class="dt">cex.lab=</span><span class="fl">1.3</span>,
+       <span class="dt">xlab=</span><span class="kw">expression</span>(beta[ZTOBACCO]), <span class="dt">ylab=</span><span class="kw">expression</span>(<span class="kw">tilde</span>(p)(<span class="kw">paste</span>(beta[ZTOBACCO], <span class="st">&quot;|&quot;</span>, y))))
+  <span class="kw">abline</span>(<span class="dt">h=</span><span class="dv">0</span>, <span class="dt">lty=</span><span class="dv">5</span>)
+  <span class="kw">plot</span>(smabma<span class="op">$</span>rho<span class="op">$</span>marginal, <span class="dt">type=</span><span class="st">&quot;l&quot;</span>, <span class="dt">cex.lab=</span><span class="fl">1.3</span>,
+       <span class="dt">xlab=</span><span class="kw">expression</span>(rho), <span class="dt">ylab=</span><span class="kw">expression</span>(<span class="kw">tilde</span>(p)(<span class="kw">paste</span>(rho, <span class="st">&quot;|&quot;</span>, y))))
+  <span class="kw">abline</span>(<span class="dt">h=</span><span class="dv">0</span>, <span class="dt">lty=</span><span class="dv">5</span>)</code></pre></div>
+<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAtAAAAJACAMAAACT76HtAAAAGFBMVEUAAABNTU2ampqnp6eysrLQ0NDh4eH///+in0OdAAAACXBIWXMAAA7DAAAOwwHHb6hkAAAbq0lEQVR4nO2di5bjKLJFmTvd4///47uq0nZaMpIAxYtgn16r01nAgRBbCLCkLA+EEql4NwAhSQE0SiWARqkE0CiVABqlEkCjVAJolEoAjVIJoFEqATRKJYBGqQTQKJUAGqUSQKNUAmiUSgCNUgmgUSoBNEolgEapBNAolQAapRJAo1QCaJRKAI1SCaBRKgE0SiWARqkE0CiVABqlEkCjVAJolEoAjVIJoFEqATRKJYBGqQTQKJUAGqUSQKNUAmiUSgCNUgmgUSoBNEolgEapBNAolQAapRJAo1QCaJRKAP2pP0ejFI7JxKLzPlWeTHu3Aw2LvvsUQE+vkb4r8TV6NEoNaO9gGjQY79FRCK+Txo8EPHyorDTewlK+S2eOV99NQwA96nM1HgQRQLckiZax1XAL/8w5vgBOHK+Bm4YAur1cbQ59tznqAuiWJNEytgLoOG4aAui+cgAdXNGBjmNYaqXjNM/GMHjzzg0B2trtZ2tQ2DGwm3G8EYAuCo5x3YhXwnEkSbTMud9SHVz56kbAMqybcbwBgFa4eyJ6BxPvfcv+JNEyF3Z08G3LqG4ALWQZ1Y14ZSz7k0TLXNgt1MHVnUEJz6BuawIduks03OK3UNRtJaCX7OAJWijrZtZCgPZxi99CWTeAFvCM7Ba/hbJuAC3gGdktfgtl3QBawDOkW1HwnMANoAU8RwrWHrnSAFrHNKCb9QkcBegYHVxvC0ALmFnF6w50qA4GaHE3gJY0HSwH0PJmAC1h2l+QOfTk8QL0qY/8ezlCx6vgBtCSpv0F1d/LEStefTeAljQdKFe+i+s0TdIVoFuSRMtcmgG0hGk8N4CWNB0sB9AKZkbxhgE6RgeXWunE8eq7AbSoaTw34pU07UoSLXNttkYHl8onSddobubxArStWzCg1b9IAmhZ03BusYDWXwRHAzrfGezsFive5YBOGLCzW6l+FHQdKZepfwHa1i0W0AmvwABt6xYM6L2P+M1YwYBOeAY7uwUDujyUb8Yyj7evFs0zOEQHq7vFirf8FDW5AscAWv12ylgdrO9mHe/5ELQc0AkDdnZzivcA6YT9uxrQlyNW1ivSAdF2a6QoQFcyTR3wM8MyI9ZAdVPHezWHruWZOuDTLJmB9nGLBrRYmQavACNWKYZAC/qeTbEk3W55AbSIa2/JonpFKoe/yNnu07qrUYoXoEVc9yldtYjvuzsAXVvm3nEbtgJoEdfvtPNE3SmHC9CPTqanjjcQ0AFGrCfNyYCunqXDbl1aDuhgI9ZzUycV0K9IAVq0TIuV/4hVnuk9bl0yj9d5lwOgFWz3aWcjVqklzR2vqxtAK9huUxYbscqvBNy6BdAKtpHciFfetjlJtEyL1WojlpzxmdE/5d/Oimbu3+WA9nXTmpyfrhke//0fQI/a3bICaCHffdr/AfSo3S0rO6D7vgyeG+h/Ho9//yPm1ielGRZAV5I7KpsbaE83h3hXBLq62Tzs1iMvoBe6IkUC2qqDlwN6pSuSL9A+Hey3becUb2dlU8dbBu75nTpgVzeAVvHdJJX9h1t2nQJoFd996kpXpNKUq9muU+E6WPmxfk5gFd+jpNb6pg74b/JReqkW19t9kXIG6Ft1TB3wM8PJDf6GzbIBerEph+dTwZ6X4FqenED3dvHU/ft3i7KzoqkDfmY4enWS6hzaC+jjeMfcRo3sphyLbds1Ryv8GgM/oLvqmjred1JHv80O9Pkuh2WzFhuh7YDue9B9dqDPy5V8QHvNob2A7n3QfeqAT3OVn/8lA9ptl8MHaMddjphA673GwDneWsF0i+CRKqYO+DxXqSXkjbd+aZ463vKpo2SlZsXr4Hv5+o28480IdEvBTAEP1JY33oT9C9By+QZ8hKzHp1jprsAvZA9mHNXyUwfs6BYQ6H2O+b9IKl//3yanO4N/0l2+GQ0KtFovRAR6n3v+M/iV3FFVFqAr5aodqhevP9ApvwpuPX3b3NrlB/ThIFQ9taeO93oOXQD6VltOfWyAPrkila/vRSePt6Hr+Sr4bnOOfUyAPj+Bvw/E1PE+gz3+y6qP75CnDtjRLSbQvW7t8gG61P/Y5KZkSqAX6eDHYlekN8trrfpd7g/migTQcs6b5MpKaNztjg9XJCnnfdJKHXw+w1L7IqlmwxVJyvmddH63Xa9dl+KN0KVK+/RAr3RFGqlh6oCfGQ7fy5EQ6OMr0ojbLR+AFnNuylPf8ZkdaKcR2ifecvB50K5LEVf9pXyXnrqDnxkc5tDuQDdXNj3Qf6ltGsUlb8Y6muRoWQ/XNDfQZf/hll2XHHc5PG4fdQba3M1rhO4fhaYO+PFe+gm53bMxAbr5itTkdscm9aIwINCq9we7AR3oigTQctYfqSevAut3a5Yr0HJu92zU4y2v/pWx65Hnqr+rpGYnALSY9SupdNc0O9Cls6rpgfa52w6g5byvOrivptmBdnIDaDnvqxG6dNU0O9BLXZFe86sgc2jDOeUiHfxY7IpUPu+3u2/XI0+gHz13N0zdwY/FrkjBtu3sLsHmiyTvXY5F4vUDerVFku8cepkr0opA995uNH28f/8H0KJlWl20Az59xr3b7b4LVyQ57+EKpg64f1NHpk1HJqrmz9SVrkgAfc/ttoky0MtdkdYDur+WmYF2O4EBWt/7b8r5rrve+7BXA9or3tWAbipXqv96T45z6KWuSABdKZcI6P7vgeeOd2Gga3nyAe3mthzQ3h18cD7lm0OfF0wX74V/voCfGdqqEXyNgTvQi1yRzv3zBTyCqESTTlqk6n6eJV//Lge0l5sz0Kd/oSFV/wL0ppzaawy8gL64IuWbUi43h77o4E63ZrlPOdp8xNYMbvF2zianXyTVrznnJafu4IuCWn+HchKgx8s0mzgD3ecm4aHdwWdD0JNmgL4vtznlQCV54y0//1sH6HyLpFcfCrkJeLgDrfJ3KIMCnW+R5HRvw5mFqv3FFanUUmfu30v7xRZJWm5uQK92RVpuDu3k5jdCO91tB9BG7k5ufiO0j5vzFUnOTsADoGXtXdwA2srdyQ2greydgKaDzexd3ADazt7D7WK3X9nfwQ2g7ew93ADazB6gLdxWA9oxXoC2cANoM3+AtnADaDN/H6CjdvCfchoPNESNV8sNoE39T8uV7+K323NloF6BtRtAm/qfltsALfSEDkDb+QP0plz15bMALWygWQFA70qW79JTd7CHG0Db+pu7AbRdBS5AL9bB1+X1azB1A2jrCmzdANqwAoDWd1sNaNd4AVrfDaANa/AAerEObiluUIWdG0A71GDoBtCWNQC0uttqQPvGC9DqbgBtWYUD0It1cFtpizqM3ADapworN4CWrwOgHd1WA9o5XnugF+vg1sImlVi4AbRbHSZuAK1QCUD7uTUXvlPLhPGmAdo7YGO39rKLAa0VL0DrunWUvVFNnHhtzuBAQC82YnUVHa8nTLz+J7Ax0D1FE4xYfSXnB7rveWKVeC9Mhf/wZvgOFo23+3Hx8WYPF0wX77lnqWbqbkf/X0XYlOut7kaXVIt3uo1G+1m0t8r+qj7LCfXvQP2DJcWALmP6aPj4p+bKKu8+6jxQN+O9E+WM8YbqX5MR2lzOI5a5iLcl6W/y86ToKRNAMeaUdiLeliTRMraKsuq3EvG2JImWsRUdHMdNQwAdyE1DxNuSdFwmvoYPFfFOHu/tQ9FiIJVHzkhU1zXa5NDQaa3jiWpFAVpAAN2dCNDCRqIC6O5EgBY2EhVAdycCtLCRqAC6OxGghY1EBdDdiYGBRiiSABqlEkCjVAJolEoAjVIJoFEqATRKJYBGqQTQKJWGgX7flPrzoXqT6neeE5+fptRvdv3ONNYgWV2Hdx3cdWT2cdVrlSi3S93i11X0sEGjB6e8yj4/1Hx2ed6/VvM8X1NSbc8u07nRSYNkdR3edXDXkdnHVam1esT7y+1j2byapqvocYNuA/14V9CS54zD80buMl0BbdDv1+FdB3cdmX1clVofj6Ou6Sr3fXKeI3tsrA90dcaxy1Or7uMff07Z6mxil+nUqBw3SFYdQB8Gdx2ZfVyVWh+PyhHvL9cF9DbQr6JqU47fn2ew/jT/Guh6kwaArhuJ6jq86+C6ga54aOi71rZKz8t9D7MnQD86Und19OrP2XHVV5U8X41o8ek3Mun461ZdB9fpYXei1mptrPO83J7KzSjsCPSmgv3RHs5zcuxaMjVHLKbr8K7b3ZHDLK5Krc1Vnpf7PjmbkVUH+rV78jrNTnbS2vK82ludG7Vkeufp3Gga13V41+3uyGEW13etF68OaC63i2WL33mgrYfB5OggZCWARqkE0CiVABqlEkCjVAJolEoAjVIJoFEqATRKJYBGqQTQajL6kjqIokQboxUZZXQbURCFida7EVFObHmF6WIThYnWuRFhjoO8EodWUZhoAVpL5ZH24lPRaLT/lPKPcENclRrotKFVdCNa2YPkDnTaYez5fMXz7+qVzS3tm5XD+99nXk+MR/vff+Ub4qfEw9j7gaHH61mkzdNDv1E/n8DY/etkGo323//7n0JD/PQ6DjMPTgd6P1v10b0fXfx75D+72Ls/hjUa7X+kez4G0DN35ZHK6yx9XXY/+nbbxc//pj4KYaL1Bnp7HmdS2fx89eDzedpHPqA/fzpG6w304zvkJCpfP8rnj49Z5UcXT3sQwkTrDvT7x7R9eaBXaM91/+N1Jfq4PL8zlukXEmGiBWiUSjGAnnpwGlZpf39LAhlFu8zxRGsIoFEqATRKJYBGqQTQKJUAGqUSQKNUAmiUSgCNUgmgUSoBNEolgEapBNAolQAapRJAo1QCaJRKAI1SCaBRKgE0SiWARqkE0CiVABqlEkCjVAJolEoAjVIJoFEqATRKJYBGqQTQKJUAGqUSQKNUAmiUSgCNUgmgUSoBNEolgEapBNAolQAapRJAo1QCaJRKAI1SCaBRKgE0SiWARqkE0CiVABqlEkCjVAJolEoAjVIJoFEqATRKJYBGqQTQKJUAGqUSQKNUAmiUSgCNUgmgUSoBNEolgEapBNAolQAapRJAo1QCaJRKAI1SCaBRKgE0SqURoEt8yR6j+CLed+NHAh4+VFYS7mBRNw0Rb0uSaBlb0cFx3DQE0IHcNES8LUmiZWxFB8dx0xBAB3LTEPG2JImWsRUdHMdNQ9GBDm4YvHnihhpAy+4sBgdaeBv1Eb6DgxsqAF1kXaMDreAY1229eJ+WgraxgRY+e5+WYd1WBLoI24YHWsMyqtty8b4d5XwBOpDbcvE+FgNa+nIkbwfQMoYAfc8zqNu6QMsZA3QgN4CWM+xLEi1z5Ra5S4hXyC8A0NXbqeng+27xW6jg5w90fTZPB993i99CDT8p58hAi6+A53CL30INP4C+ZxrYLX4LNfzcgTaYQwO0mGdMt087f6D3ua+eue2X+JaOuJmOW4x4y98+lXI7rEPa+h7QX1kSA212RYoRb6nuiicGuv4ahNQdXCmeOt4N0ApX4FhA187f5B1cKZ463rVG6D/nLEDnjdfii7NgQD8qD0jRwTcUK14Dt3BAy5S5NAvZwezqSLvJeM8AtKjrLa+VrkjmbgB9z7S33GK7OvZu6YEulU+SrgMFbUboGPGauwH0Tdfukla7OkHiVXdTudoBdE9ZgFY0A+ibruHcAFre9G4FAC1htlq8kuYAHcZttXgXBlrSNm4HA7SG6U1/gJbwAmg505v+AC3hBdBypjf95wa6//4MgJb0knAH6N+Usv9wx61f616RJN0BejhTV8Y+L4AWdL1ln6WDWyvMEq+HmwPQUeaUy3XwavEKup8B7TunLAefBW2/0rrryQv0n3K6T+hUvATs26YcHnNKB6D7kU4NdPkungVojzllOfxFzraWzhTrVW4DtPwjZ65AC9jdsrID+tHFdGKgi/IIXbPSBtp1Tuk6QrPL8TP9UpxDewDtOqd0AfoVL0Cru1Wt7vtfTjnc5pQOQLPLYejmBfTDa07pN4f2cVs6Xjn/xhG6tiJVfpOQeQeXT9126xZAi/g3zqG/s9UT6GAZq/zx1p2UgT4bqLSBLie/yfkGcgNoEf/hfei0QHd9fwDQsk66QJ/PKZXn0FpnyuU+9FGudGsGX7dwI/RXbuGvRqMBzZpB1i0e0KWo3o0F0Aq2gdwOnG5X0LJtVx15y3MbRLg9R04ALWEbyM0N6L+falPKpEAfLgqZQ4u6eQJdzWO7y2EIdKuP9O2UAC1SwTXQR51WasUTA628ZgBomQqG59BK7TlyMpxy1DOlnWL5uB0Z2cyhRezuOUVYFAI0QA9L7doedZcDoGUquJ5yvAenm3Z9Cgf0cmsGXbdDo7s1zAK03O7EZQafezkAWqYGgA7i5gH05YJfrRcAGqBlfD9Tyv7DNlX17zI6Au2zbec45eipbGagLzLtjoPwF0l+QIvZ3TSyAvpwUTjk1i7fOXR9jE455RCzu2kE0CK+fWUdgL5bRQPQPRcagB6Vz6JQ0k3IRx1onzkl23Y6vvvUznoSAO00Yq22y+F3RXJ5kdByQH/72AK91AnscEXyBNpl284VaI8ph/MI7d+/UlUE3eWo+AhZN8yhO6qaHWivl1MCtBnQXWvgyYF22+U4bZSa9evkDbJoYISWMY7gdmpzr46WRWFHDQmAXmYO7fhySoCWs2aXI4AbQMtZh+xgx0Whyz60K9BBtu0M59CLTDkeH2OWiJuQjTLQYnZ3fex2OTouSgA9JICWswbor8TFgPa4BNdsUgPtdAKX3ooSAH14Emu+680T6KXWDD7bdhdt0vI+B7o8agnzA+3jttauzoXLrUoAOoQbQEtVAtBfGTxep+sNdKQphzLQLh3suyis5lI9gb2Brvev2ttWfYFuNZJ8zB2gDeK9eC/HT1GVeGMCXb0zXLMXTA7mQkCfD0J7oCUHLO8px2FqWQjo3HPow3IeI/StWloWhcd4fd06PD/QrV8kyb5JKB7Qrw4Wcuty8QP6a/jWDNgI6MOCilMsL6C7T8rEQNevzXmBNp9iWcyhu2sSadT1RVLH/DUGR/lq1Hd0MJ9iAbS0+YhtcqCVplgALVdLy5Sjo4oEQB9dkRSnWF5A1xd+w25iJspTjp4qEgAt6nbDxmKE9nlI1nuErizuVZpy5bIY0N67Onpu1yY3qmnc5VgHaBe3pYBu8FAG+ntxr9GSSxfLEdo2XoCWq6ZtUbjStp3DmgGg5aqJuG13YGI1QtuvGQBarpqGXY4w2zomKxLWDNpufkCX0jdc3WvJtYkV0EutGezdXEforgnlvZZcm5gBvdKawd6txWO8HoAO4AbQcvU0LAoXm0OHuZ0SoIXd3d4f7AW015phLaCbLFRHaCG7+ybKQLtNsQBasB6A3qQA9G9BpSd02izGm92WZDnlOPQwALq3mrxAP2lOCnSzve6iQXlJ4vY3R6IC/fjYkBd7KNgR6LL/oNiOJg+rNbaxW8htyp9yCk/oeI7Q/WclQAuauAL9IlrIrddCew4tYCfgYQf0EtuUPm4AbeU+UhFAKzkoAb3UlMNrzQDQkjWdz6G7vWcGemQlD9BaDvZAa728UHgSpOEh7AbQgjUNA11PU140mK1JagXV3j4K0II1Xcyhj7OkBPr8fcmV4nNPsRzc1JfbLfvQ1U7OCLTLFQmgRWsan7E6zKEBWtLdxU19A0lsCWbyXb8j0HpzaICWrEp4T2FuoM/WDF9Zxd7gD9CSVQH0Z5rL3XYALVnVMND1ntfe1rHbNrJzA2jJum4sCuUa0e7gB7TWCbwW0D3lrYGupucFWusEdl0zmLuFBlquEe0OnlMOnRMYoGXrAmhvN4AWrQugvd0AWrSyaECPTNxFKzB3A2jRygDa220loPuKA7REBdZuS02xANq+Amu3qEDv991FvuoHaPsKrN2iAq2y795ZXJjAkEDbLksM3MICrbDv3ls6AdDX5QFa0t/WDaBdarB1A2jZ6gDa122pNQNAK1QRqYMbDDIB3V94eqBbigO0aAWGbgDtVYWhG0ALFwFoV7el1gwArVFHoA5uKg/QYiXsgW4rDdCyNVi52fAE0K5uAC1daEKgza97em4rrRnGigK0amFpN4AWLxYJ6ObC5hc+JbelplgArVNLmA5uLp0D6OGSnQWnBNphoFBxA2j5goGA7iibA+jWwhnWDGY9NifQHiOFvNtCQNuFEAdoqWarlRR3W2fNYDhrCgO03FRJqaC42zpTLMtna8eBFn2jfX/Iowdp/EyQfYN/X/s9FmNi8d4/pzoeNx8GulQz9Y6zne8XrxbuLDVS1UMo3vGIh4+TY7x3OnfYTAzoMqTPho5/6qqt8QDqxFsWi1emf1uPwUW8BiO0g5xHaHMRb0vS3+TnSdFTJoACzClNRbwtSaJlbBVh1W8p4m1JEi1jKzo4jpuGADqQm4aItyXpuEx8DR8q4p083tuHQu+rg76muQ0rHRXrZLUJXeJLD13Dkdx3DQBaIStAj+e+awDQClkBejz3XQOAVsgK0OO57xoAtEJWgB7PfdcAoBWyAvR4boSCC6BRKgE0SiWARqkE0CiVABqlEkCjVAJolEoAjVJpEOj3Lak/Hy5uUX0nlu2vbZmbcr/bcdVyMTUfgo429hzWrqN6S7tW3czWnO8zvT22saNQXiWfH84DeFdTyubXhswX7du149xaVs2HoKONPYe166je0r5V97I15/tM7zhZRYBupq4D6CY8N1lcgW7u6A6g24aJlqN6S7uD3NCgNqDP7TanrPUIff1QTNl+bBmhfz5eXOUem4PjCfTxjGOX8XHcxp7D2nVUb2lBoM+N7gB90cSyzeYI9ONxVPU40Meej86jeku7g3yZrQPo1mvQikAr9+q22lLaD8HUQG8ibRxQ24E+b/Cv4cV1+qtUvzo66R7QzQen5VCKqvkQjAN9Go7HCN08oHb0WUtG/RH6ta30aNouK9t1uGDmd+7nSWy/bddwCDqOVc9h7TtQd7Q7yJcN6uuzBkMDoBGKKYBGqQTQKJUAGqUSQKNUAmiUSgCNUgmgUSoBNEolgEapBNAolQAapZIh0JZ3DnlrpVhjyfDuNNPafLVSrMEE0BpaKdZgAmgNrRTrtXoeOLlfmWFN68wrV4r1Up136EvUZlbTKr28UqyXygz068Gb30f0y+YdQR//WGbG4jvWbZCfz9T9xvx4GF+ebZQc6Of/y++P7a8fFL+gnk/bWHf/+30U8OOhwN3xyKS0QG+eeDwE+lEyAL17uvMC6N2POWM+VPkI06A2q4p+rsDvKl+X3+c/fPxaPqYcPa/MiaRtrHugNxOqBYC2fRjfvKbP+eNm1HpUOnnSCWWp/dxfjX65fiQHOmdtlZ6rAb29DM8NdNn8fjy9WmAOnbC298S4vN4v9fp1k/jOs2F7Mm1jfV+VPnc53heqNXY5ktaGkLIAGqUSQKNUAmiUSgCNUgmgUSoBNEolgEapBNAolQAapRJAo1QCaJRKAI1SCaBRKgE0SiWARqn0/xtQHM+lp9REAAAAAElFTkSuQmCC" /><!-- --></p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">par</span>(old.par)</code></pre></div>
+</div>
+<div id="reference" class="section level2">
+<h2>Reference</h2>
+<ul>
+<li>Bivand, R., Gómez-Rubio, V. and Rue, H., 2015. Spatial data analysis with R-INLA with some extensions. <em>Journal of Statistical Software</em>, <strong>63</strong>(20), pp.1–31.</li>
+<li>Tiefelsdorf, M., Griffith, D.A. and Boots, B., 1999. A variance-stabilizing coding scheme for spatial link matrices. <em>Environment and Planning A</em>, <strong>31</strong>(1), pp.165-180.</li>
+</ul>
+</div>
+
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

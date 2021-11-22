@@ -1,0 +1,32 @@
+```{r}
+load('Traffic.RData')
+Concord <- foreign::read.spss('Concord1.sav',to.data.frame = T)
+boxplot(Concord$income~Concord$retire,xlab = 'retire',ylab = 'income')
+```
+
+```{r}
+var.test(income~retire,alternative = "two.sided",data = Concord)
+```
+
+```{r}
+t.test(income~retire,data = Concord,var.equal=TRUE,alternative = "greater")
+```
+
+```{r}
+summary(lm(income~retire, data=Concord)) 
+```
+
+```{r}
+var.test(Traffic~Year,data = TrafficByYear)
+```
+
+```{r}
+traffic70 <- TrafficByYear$Traffic[TrafficByYear$Year==1970]
+traffic80 <- TrafficByYear$Traffic[TrafficByYear$Year==1980]
+t.test(traffic80, traffic70,alternative='less',paired=TRUE)
+```
+
+```{r}
+t.test(Traffic~Year,data = TrafficByYear,alternative='less')
+```
+

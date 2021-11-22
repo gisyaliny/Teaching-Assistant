@@ -1,0 +1,184 @@
+---
+title: "Circular Data"
+author: "Yang_Yalin"
+output:
+  html_notebook:
+    toc: yes
+    toc_float: yes
+  html_document:
+    df_print: paged
+    toc: yes
+---
+
+## Raw Circular Data Plots
+### Linear plot
+Although the data contained in wind are angles, wind is not however a circular data object. 
+So if we use plot function on a dataset with degree units, it is hard for observing the pattern. 
+```{r echo=TRUE}
+library(circular)
+plot(wind, pch=16, xlab="Observation number", ylab="Wind direction (in radians)")
+```
+### Linear histogram
+Using a histogram is also hard to draw a pattern.
+```{r}
+hist(wind, main="", xlab="Wind direction (radians)", ylab="Frequency", breaks=seq(from=0,to=2*pi,by=pi/8), col="grey", xlim=c(0,2*pi))
+
+```
+### Centred linear histogram
+```{r}
+n <- length(wind) ; cutpoint <- 2*pi-(5*pi/8) ; windshift <- 0
+for (j in 1:n) { if (wind[j] >= cutpoint) {windshift[j] <- wind[j]-2*pi} 
+  else {windshift[j] <- wind[j]} }
+hist(windshift, main="", xlab="Wind direction (radians)", ylab="Frequency", breaks=seq(from=-5*pi/8, to=2*pi-5*pi/8, by=pi/8), col="grey", xlim=c(-5*pi/8,2*pi-5*pi/8))
+```
+### Convert to circular data object
+```{r}
+windc <- circular(wind, type="angles", units="radians", template='geographics')
+summary(windc)
+mean(windc)
+```
+### Raw circular data plot
+```{r}
+par(mai=c(0, 0, 0, 0))
+plot(windc, cex=1.5, bin=720, stack=TRUE, sep=0.035, shrink=1.3)
+axis.circular(at=circular(seq(0, 7*pi/4,pi/4)), labels=c("E","NE","N","NW","W","SW","S","SE"),
+              zero=pi/2, rotation='clock', cex=1.5)
+ticks.circular(circular(seq(0,2*pi,pi/8)), zero=pi/2, rotation='clock', tcl=0.075)
+```
+### rose diagram
+```{r}
+par(mai=c(0, 0, 0, 0))
+plot(windc, cex=1.5, bin=720, stack=TRUE, sep=0.035, shrink=1.3)
+rose.diag(windc, bins=16, col="darkgrey", cex=1.5, prop=1.3, add=TRUE)
+```
+### kernel density estimates
+```{r}
+par(mai=c(0, 0, 0, 0))
+plot(windc, cex=1.1, bin=720, stack=TRUE, sep=0.035, shrink=1.8)
+axis.circular(at=circular(seq(0, 7*pi/4,pi/4)), labels=c("E","NE","N","NW","W","SW","S","SE"), 
+              zero=pi/2, rotation='clock', cex=1.1)
+ticks.circular(circular(seq(0,2*pi,pi/8)), zero=pi/2, rotation='clock', tcl=0.075)
+rose.diag(windc, bins = 16, col="darkgrey", cex=1.1, prop=1.3, add=TRUE)
+lines(density.circular(windc, bw=75),col = 'red',lwd=2, lty=2)
+lines(density.circular(windc, bw=40),col = 'blue',lwd=2, lty=1)
+lines(density.circular(windc, bw=10),col = 'green',lwd=2, lty=3)
+```
+## Uniform Circular Data
+Generate uniform data and create several rose diagrams.
+```{r echo=TRUE, fig.height=4.5, fig.width=4.5}
+x <- circular(runif(400, 0, 2*pi))
+rose.diag(x, bins = 36, prop=2, main = 'Uniform Distributed Directions')
+points(x,stack=T)
+```
+Get the statistic information from the dataset
+```{r}
+summary(x)
+```
+mean method for circular data
+```{r}
+mean(x)
+```
+Convert mean to degrees
+```{r}
+deg(mean(x))
+```
+Average length and variance
+```{r}
+rho.circular(x); var(x) 
+```
+Test for uniformity
+```{r}
+rayleigh.test(x)
+```
+## Von Mises Circular data
+Generate von Mises data and create several rose diagrams.
+(0<kappa<Inf. The closer kappa to zero the more uniform)
+```{r echo=TRUE, fig.height=4.5, fig.width=4.5}
+myKappa <- 16
+x <- rvonmises(n=400, mu=circular(pi), kappa=myKappa)
+rose.diag(x, bins=36, shrink=1.5, prop=1)
+points(x,  stack=TRUE)
+text(-0.9,1,paste("kappa= ",round(myKappa,2)))
+```
+Get statistic information using the same method.
+```{r}
+summary(x)
+deg(mean(x))
+rho.circular(x); var(x)
+rayleigh.test(x)
+```
+
+
+## Correlation between circular data
+### Generate datasets
+Find the correlation between Ozone level and wind direction
+using normal scatter plot
+```{r}
+ozone <- c(28.0,85.2,80.5,4.7,45.9,12.7,72.5,56.6,31.5,112.0,20.0,72.5,16.0,45.9,32.6,56.6,52.6,91.8,55.2)
+winddeg <- c(327,91,88,305,344,270,67,21,281,8,204,86,333,18,57,6,11,27,84)
+plot(winddeg,ozone,
+     ylab = "Ozone level",
+     xlab = "Wind direction (in degrees)",
+     ylim = c(0,120),
+     xlim = c(0,360),
+     xaxp = c(0,360,4),
+     yaxp = c(0,120,6),
+     cex.axis = 1.3,
+     cex.lab = 1.6,
+     pch = 16, cex=1.5)
+
+```
+
+Transform the range of wind direction from 0 - 360 to -180 - 180
+```{r}
+n <- length(ozone)
+winddegShift <- winddeg
+for (j in 1:n) { if (winddegShift[j] > 180) {winddegShift[j] <- winddegShift[j]-360} }
+
+plot(winddegShift,ozone,
+     ylab = "Ozone level",
+     xlab = "Wind direction (in degrees)",
+     ylim = c(0,120),
+     xlim = c(-180,180),
+     xaxp = c(-180,180,4),
+     yaxp = c(0,120,6),
+     cex.axis = 1.3,
+     cex.lab = 1.6,
+     pch = 16, cex=1.5)
+```
+### Randomization test
+This is a method for measuring unknown distributions.
+```{r}
+
+## Calculate R-square of two circular datasets using variances and co-variances
+
+R2xtCorrCoeff <- function(lvar, cvar) {
+  rxc <- cor(lvar, cos(cvar)) ; rxs <- cor(lvar, sin(cvar))
+  rcs <- cor(cos(cvar), sin(cvar))
+  R2xtVal <- ((rxc*rxc)+(rxs*rxs)-(2*rxc*rxs*rcs))/(1-rcs*rcs)
+  return(R2xtVal)
+}
+
+## Do 'NR' times sampling, and calculate the R-square for each samle. 
+## Get the p-value using their rank
+
+R2xtIndTestRand <- function(lvar, cvar, NR) {
+  R2xtObs <- R2xtCorrCoeff(lvar, cvar)
+  R2xtObs1 <- c(R2xtObs) ; nxtrm <- 1
+  for (r in 1:NR) {
+    lvarRand <- sample(lvar)
+    R2xtRand <- R2xtCorrCoeff(lvarRand,cvar)
+    R2xtObs1 <- c(R2xtObs1,R2xtRand)
+    if (R2xtRand >= R2xtObs) {nxtrm <- nxtrm+1} 
+  }
+  pval <- nxtrm/(NR+1)
+  hist(R2xtObs1,breaks = 25,freq = F)
+  lines(density(R2xtObs1,bw = ),col = 'blue',lwd = 1)
+  abline(v=R2xtObs,col="red")
+  return(c(R2xtObs, pval))
+}
+
+windrad <- winddeg*2*pi/360
+R2xtIndTestRand(ozone, windrad, 9999)
+```
+

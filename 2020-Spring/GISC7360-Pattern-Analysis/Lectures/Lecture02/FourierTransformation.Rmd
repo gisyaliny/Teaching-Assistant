@@ -1,0 +1,70 @@
+---
+title: "Fourier Transformation"
+author: "Yang_Yalin"
+output: 
+  html_notebook:
+    toc: TRUE
+    toc_float: TRUE
+---
+## Definition
+
+The Fourier transform (FT) decomposes a function of time (a signal) into its constituent frequencies.
+From my perspective, it uses sin and cos as the base to simulate trends.
+
+![A sinusoidal curve, with peak amplitude (1), peak-to-peak (2), RMS (3), and wave period (4).](https://upload.wikimedia.org/wikipedia/commons/8/8a/Sine_voltage.svg)
+
+## Case Study (Example)
+### Box plot
+Detecting the seasonal pattern of the lung disease related death counts using a boxplot stratified by the months
+```{r}
+boxplot(lungDeath~monthNum,data=lungDf, main="lung death against month",
+        xlab="Month", ylab="Death")
+```
+### Linear Regression
+Test with linear regression whether there is a trend in the lung disease related death counts over time
+```{r}
+summary(mod <- lm(lungDeath~monthNum,data=lungDf))
+```
+
+### Fourier Decomposition
+Estimate with linear regression the amplitude and phase shift of the seasonal behavior of the lung disease related death counts.
+
+#### Decompose time variable
+Generate base variable (associate with time) and do the linear regression
+```{r}
+## Transform number of month to continuous
+yrs <- 6 
+t <- seq(0, (yrs*12)-1, by=1)
+
+## Set lambda paramter, larger lambda, shorter phase shift
+lambda1 <- 1/12 
+lambda2 <- 1/6
+
+## Generate time-dependent cos and sin proxy variable
+yCos1 <- cos(t*lambda1*2*pi)
+ySin1 <- sin(t*lambda1*2*pi)
+
+yCos2 <- cos(t*lambda2*2*pi)
+ySin2 <- sin(t*lambda2*2*pi)
+
+## Estimate model
+yrs.lm <- lm(lungDf$lungDeath~t + yCos1 + ySin1 + yCos2 + ySin2)
+summary(yrs.lm)
+```
+## Auto select Best Model
+Using stepwise method to generate the best model (Only keep the significant variables)
+```{r}
+library(MASS)
+step.model <- stepAIC(yrs.lm, direction = "both", 
+                      trace = FALSE)
+summary(step.model)
+
+```
+## Model comparison
+Plot the original data and the prediction from our model
+```{r}
+plot(x = t,y = lungDf$lungDeath,lwd = 2 ,type = "l", col = 'blue',xlab = 'Month',ylab = 'Lung Death')
+lines(x = t,y = predict(step.model),lwd = 2,col = 'red')
+
+```
+

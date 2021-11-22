@@ -1,0 +1,66 @@
+---
+title: "Cluster Analysis"
+author: "Yang_Yalin"
+output:
+  html_notebook:
+    toc: yes
+    toc_float: yes
+  html_document:
+    df_print: paged
+    toc: yes
+---
+### Generate 3 random clusters
+```{r echo=TRUE}
+library(mclust); library(dplyr)
+
+nofpts1 <- 20
+x1 <- runif(nofpts1,min=0,max=3)
+y1 <- runif(nofpts1,min=0,max=6)
+
+nofpts2 <- 35
+x2 <- runif(nofpts2,min=4,max=6)
+y2 <- runif(nofpts2,min=4,max=6)
+
+nofpts3 <- 45
+x3 <- runif(nofpts3,min=5,max=10)
+y3 <- runif(nofpts3,min=5,max=10)
+
+X <- c(x1,x2,x3)
+Y <- c(y1,y2,y3)
+
+p <- data.frame(X,Y)
+plot(Y~X, data=p, pch=20, cex=2,
+     col=c(rep("blue",nofpts1),rep("red",nofpts2),rep("green",nofpts3)),
+     main="Distribution of Points in three Clusters")
+```
+### Estimate clusters with given number
+
+The covariance matrices of the different classes can be constrained using different restrictions:
+
+Volume: each cluster has approximately the number of observations
+Shape: each cluster has approximately the same variance so that the distribution is spherical
+Orientation: each cluster is forced to be axis-aligned
+
+has three types of input parameter for each constraint: OR - Variable, E - Equal, IN - Axes or NA
+
+So "VVV" here is the most flexible model.
+```{r include=FALSE}
+p.Mclust <- Mclust(p, G=c(2,3,4), modelNames="VVV")
+summary(p.Mclust)
+```
+### Plot of "optimal" model with 3 clusters
+```{r}
+plot(p.Mclust, what="BIC")
+```
+```{r}
+plot(p.Mclust, what="classification")
+```
+bigger bubble, higher uncertainty.
+```{r}
+plot(p.Mclust, what="uncertainty")
+```
+Generate contour line
+```{r}
+plot(p.Mclust, what="density")
+```
+

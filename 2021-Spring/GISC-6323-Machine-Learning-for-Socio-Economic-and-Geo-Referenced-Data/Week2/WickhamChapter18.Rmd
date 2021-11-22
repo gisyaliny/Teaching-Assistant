@@ -1,0 +1,121 @@
+---
+title: "Chapter 18: Pipes with magrittr"
+author: "Michael Tiefelsdorf"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: 
+          collapsed: false
+    number_sections: true          
+    toc_depth: 3 
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo=TRUE, include=TRUE, highlight=TRUE, tidy=TRUE, fig.width=7.2)
+library(tidyverse)
+```
+
+# Introduction
+Pipes allow to elegantly express a sequence of multiple operations. The package `magrittr`, which provides their functionality, is part of the `tidyverse` family of packages. The objective of piping is to write code that is _supposed_ to be easier to read and comprehend.
+
+We have seen already in `WickhamChapter05.html` that there are alternatives to using the piping operator:
+
+* sequential execution by generating intermediate objects, which save the results at each step that are subsequently feed into the next step.
+* overwriting an object many times which saves the intermediate results. 
+* nested specification of the operations which Wickham & Grolemund call a composed function.
+
+# Object Sizes
+An interesting feature of `data.frames` and `tibbles` is that internally the variables are stored separately and the data objects just collectively point to these variables. Thus if several data objects shares the same variable the memory demands do not increase:
+
+```{r}
+diamonds <- ggplot2::diamonds
+diamonds2 <- diamonds %>% mutate(price_per_carat = price / carat)
+
+pryr::object_size(diamonds)
+pryr::object_size(diamonds2)
+pryr::object_size(diamonds, diamonds2)
+```
+
+However, if a variable which is assigned to one data object is changed, then a modified copy of that variable is generated:
+
+```{r}
+diamonds$carat[1] <- 20          # this is a big rock
+
+pryr::object_size(diamonds)
+pryr::object_size(diamonds2)
+pryr::object_size(diamonds, diamonds2)
+```
+
+Note: you may need to download the package `pryr`.
+
+# Alternative Sequencing
+
+## Intermediate Steps:
+The syntax `(...)` of enclosing a statements by parentheses echos the results of the statement into the document or `Console`. 
+```{r}
+x <- 16
+( y <- sqrt(x) )
+( z <- log(y) )
+```
+
+## Overwrite the Original
+```{r}
+x <- 16
+( x <- sqrt(x) )
+( x <- log(x) )
+```
+
+## Functional Composition
+```{r}
+x <- 16
+( y <- log(sqrt(x)) )
+```
+
+# The Use of Piping
+Behind the scene `magrittr` translates a  piped sequence of commands 
+```{r}
+x <- 16
+( x %>% sqrt() %>% log() )
+```
+
+into a function with the placeholder argument and temporary results denoted by a dot `.`:
+```{r}
+pipe <- function(.){
+  . <- sqrt(.)
+  . <- log(.)
+  return(.)
+} # end:pip
+
+pipe(x)
+
+```
+
+
+# Limitation of Piping
+Pipes are useful for short linear expressions. Thus they are not suitable for:
+
+* A long sequence of steps.
+* If a function has more than one variable input. Thus, if just individual elements of a list are needed as    input, these list objects cannot directly be paste with the help of piping.
+* They cannot evaluate non-linear expressions such as `ifelse()`.
+
+# Other 'magrittr' tools
+These additional tools require to attach `magrittr` explicit to your session.
+* Pipes can split with the "tee" operator to two subsequent commands:
+    ```{r}
+      library(magrittr)
+      rnorm(100) %>% matrix(ncol = 2) %T>%  # Change %>% to %T>% here
+      plot() %>% 
+      str()
+    ```
+* In order to get to individual variables in a data frame, one needs to explode the dataframe with the operator `%$%`:
+    ```{r}
+    mtcars %$% cor(disp,mpg)
+    ```
+* The use of the `%<>%` is not recommended because it leads to confusing code. See below the two equivalent command sequences:
+
+    ```{r}
+    mtcars <- mtcars %>% transform(cyl = cyl*2)
+    mtcars %<>% transform(cyl = cyl/2)
+    ```
+

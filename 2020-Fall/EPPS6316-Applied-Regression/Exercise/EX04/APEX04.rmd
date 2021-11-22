@@ -1,0 +1,131 @@
+---
+title: "EX04"
+author: "Yalin Yang"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: no
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+--- 
+
+
+## Task 1
+
+
+```{r}
+X <- matrix(c(1,1,1,1,1,1,2,4,2,4,2,6), nrow=6)
+y<- matrix(c(2,5,2,5,2,9), nrow=6)
+solve(crossprod(X), crossprod(X,y))
+```
+
+```{r}
+X <- matrix(c(1,1,1,2,4,6), nrow=3)
+y<- matrix(c(2,5,9), nrow=3)
+W <- diag(c(3,2,1))
+solve(t(X)%*%W%*%X, t(X)%*%W%*%y)
+```
+
+
+## Task 2
+
+
+```{r}
+(y <- matrix(c(7, 5, 3, 1, 3, 2, 9, 5, 7), ncol = 1))
+(X1 <- matrix(c(rep(1, 12), rep(0, 9), rep(1, 3), rep(0, 3)), ncol = 3))
+(X2 <- matrix(c(rep(1, 12), rep(0, 12), rep(1, 3)), ncol = 3))
+(X3 <- matrix(c(rep(1, 12), rep(0, 3), rep(-1, 3), rep(0, 3), rep(1, 3),rep(-1, 3)), ncol = 3))
+(X4 <- matrix(c(rep(1, 12), rep(-1, 3), rep(0, 6), rep(-1, 3), rep(1, 3)), ncol = 3))
+```
+
+```{r}
+(mean.group1 <- mean(y[1:3]))
+(mean.group2 <- mean(y[4:6]))
+(mean.group3 <- mean(y[7:9]))
+(mean.global <- mean(y))
+```
+
+```{r}
+Best <- function (x,y){solve(t(x)%*%x)%*%t(x)%*%y}
+(parameter1 <- Best(X1,y))
+(parameter2 <- Best(X2,y))
+(parameter3 <- Best(X3,y))
+(parameter4 <- Best(X4,y))
+```
+
+## Task 3
+
+```{r}
+data("CPS1985",package="AER")
+rownames(CPS1985) <- 1:nrow(CPS1985)
+```
+
+
+```{r}
+library(car)
+scatterplotMatrix(~log(wage)+education+age+experience, data=CPS1985, spread = FALSE, id.cex=1.5)
+```
+
+```{r}
+model1 <- lm(log(wage)~education+experience, data=CPS1985)
+summary(model1)
+```
+
+```{r}
+vif(model1)
+```
+
+```{r}
+model2 <- lm(log(wage)~education+experience+age, data=CPS1985)
+summary(model2)
+```
+
+```{r}
+vif(model2)
+```
+
+```{r}
+model.full <- lm(log(wage)~education+experience+gender+occupation+union, data=CPS1985)
+summary(model.full)
+```
+```{r}
+model.test <- lm(log(wage)~education+experience+gender+union, data=CPS1985)
+anova(model.test, model.full)
+```
+
+```{r fig.height=6, fig.width=9}
+car::residualPlots(model.full, main="Full model")
+
+```
+
+```{r}
+model.final <-lm(log(wage)~education+experience+I(experience^2)+gender+occupation+union, data=CPS1985)
+car::qqPlot(model.final, id.n=2)
+
+```
+
+```{r fig.height=7, fig.width=9}
+car::influenceIndexPlot(model.final, id.n=2)
+```
+
+```{r}
+write.csv(CPS1985[c(63,171,200,347), ],file = 'test.csv')
+```
+
+```{r}
+car::avPlots(model.final)
+```
+
+
+
+
+
+
+
+
+

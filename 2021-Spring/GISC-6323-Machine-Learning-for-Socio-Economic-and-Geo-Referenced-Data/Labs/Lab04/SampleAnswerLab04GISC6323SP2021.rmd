@@ -1,0 +1,434 @@
+---
+title: "Lab04: Artificial Neural Networks and Support Vector Machines"
+author: "Yalin Yang"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: no
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+--- 
+
+```{r message=FALSE, warning=FALSE}
+library(ggplot2);library(e1071); library(ISLR) ;library(gmodels); library(ROCR);
+library(caret);library(parallel)
+library(AmesHousing); library(rsample);library(recipes)
+cl <- parallel::makeCluster(detectCores())
+```
+
+
+# Part 1: Support Vector Machines [15 points]
+
+## Task 1: You will answer an applied exercise in James et al., 2013. `An Introduction to Statistical Learning with Application in R`. Please follow the sequence of tasks/questions in the exercises. `Answer the questions (a) to (i) of exercise 5 on pages 369-370`. Show your code. [5 point]
+
+We have seen that we can fit an SVM with a non-linear kernel in order to perform classification using a non-linear decision boundary.We will now see that we can also obtain a non-linear decision boundary by performing logistic regression using non-linear transformations of the features.
+
+### a
+Generate a data set with `n = 500` and `p = 2`, such that the observations belong to two classes with a quadratic decision boundary between them.
+
+```{r}
+set.seed(100)
+x1 <- runif(500) - 0.5
+x2 <- runif(500) - 0.5
+y <-  1*( x1^2-x2^2 > 0)
+```
+
+### b
+
+Plot the observations, colored according to their class labels. Your plot should display `X1` on the x-`axis`, and `X2` on the `yaxis.`
+
+```{r}
+plot(x1,x2,col = as.factor(y))
+```
+
+### c
+Fit a logistic regression model to the data, using `X1` and `X2` as predictors.
+
+```{r}
+set.seed(1)
+df <- data.frame(x1 = x1,x2 = x2, y = as.factor(y))
+index <- caret::createDataPartition(df$y, p = 0.7, list = FALSE)
+df_train <- df[index, ]
+df_test  <- df[-index, ]
+```
+
+
+```{r}
+logistic.mod1 <- glm(y ~ ., family = binomial(link="logit"), data = df_train)
+summary(logistic.mod1)
+```
+
+```{r}
+logistic_as_factor <- function(result){
+  return(as.factor(ifelse(result > 0.5,1,0)))
+}
+logistic.pred <- predict(logistic.mod1,newdata = df_test,type = "response")
+logistic.pred <- logistic_as_factor(logistic.pred)
+confusionMatrix(logistic.pred,df_test$y)
+```
+
+### d
+
+Apply this model to the `training data` in order to obtain a predicted class label for each training observation. Plot the observations, colored according to the predicted class labels. The decision boundary should be linear.
+
+```{r}
+train_pred <- fitted(logistic.mod1)
+train_pred <- logistic_as_factor(train_pred)
+ggplot(df_train, aes(x = x1, y = x2)) +
+  geom_point(aes(shape = train_pred, color = train_pred), size = 3, alpha = 0.75) 
+```
+
+### e
+
+Now fit a logistic regression model to the data using non-linear functions of `X1` and `X2` as predictors (e.g. $X_1^2 , X_1×X_2, log(X_2)$,and so forth). 
+
+```{r}
+x1_quad <- df_train$x1^2
+x2_quad <- df_train$x2^2
+x1.x2 <- df_train$x1 * df_train$x2
+logistic.mod2 <- glm(y ~ . + x1_quad + x1.x2 + x2_quad, family = binomial(link="logit"), data = df_train)
+summary(logistic.mod2)
+```
+
+```{r}
+df_test$x1_quad <- df_test$x1^2
+df_test$x1.x2 <- df_test$x1 * df_test$x2
+df_test$x2_quad <- df_test$x2^2
+logistic.pred <- predict(logistic.mod2,newdata = df_test,type = "response")
+logistic.pred <- logistic_as_factor(logistic.pred)
+confusionMatrix(logistic.pred,df_test$y)
+```
+
+### f
+
+Apply this model to the training data in order to obtain a predicted class label for each training observation. Plot the observations, colored according to the predicted class labels. The decision boundary should be obviously non-linear. If it is not, then repeat (a)-(e) until you come up with an example in which the predicted class labels are obviously non-linear.
+
+```{r}
+train_pred <- fitted(logistic.mod2)
+train_pred <- logistic_as_factor(train_pred)
+ggplot(df_train, aes(x = x1, y = x2)) +
+  geom_point(aes(shape = train_pred, color = train_pred), size = 3, alpha = 0.75) 
+```
+
+### g
+
+Fit a support vector classifier to the data with `X1` and `X2` as predictors. Obtain a class prediction for each training observation. Plot the observations, colored according to the *predicted class labels*.
+
+```{r}
+set.seed(1)
+tune.out <- tune(svm, y~.,data=df_train,kernel="linear",ranges=list(cost=c(0.001, 0.01, 0.1, 1,5,10,100)))
+summary(tune.out)
+```
+
+```{r}
+bestmod <- tune.out$best.model
+summary(bestmod)
+```
+
+```{r}
+ypred <- predict(bestmod, df_test)
+confusionMatrix(ypred, df_test$y)
+```
+
+```{r}
+train_y <- fitted(bestmod)
+ggplot(df_train, aes(x = x1, y = x2)) +
+  geom_point(aes(shape = train_y, color = train_y), size = 3, alpha = 0.75) 
+```
+
+### h
+
+Fit a SVM using a non-linear kernel to the data. Obtain a class prediction for each training observation. Plot the observations, colored according to the predicted class labels.
+
+```{r}
+set.seed(1)
+tune.out <- tune(svm, y~., data=df_train, kernel="radial", 
+                 ranges=list(cost=c(0.1,1,10,100,1000),gamma=c(0.5,1,2,3,4)))
+summary(tune.out$best.model)
+```
+
+```{r}
+ypred <- predict(tune.out$best.model, df_test)
+confusionMatrix(ypred, df_test$y)
+```
+
+```{r}
+train_pred <- fitted(tune.out$best.model)
+ggplot(df_train, aes(x = x1, y = x2)) +
+  geom_point(aes(shape = train_pred, color = train_pred), size = 3, alpha = 0.75) 
+```
+
+### i Comments
+
+* `logistic regression` is not suitable for a very messy dataset. Although we could add quadratic terms or log terms to make the classifier boundary more reliable, it hard to figure out the logic behind(why and how it works).
+
+* The performance of `SVM` is highly relying on the kernel function we choose. Therefore, we have to have a basic impression of our dataset and select the right classifier, which is hard when using high-dimensional datasets(not intuitive).
+
+## Task 2
+
+For the following tasks continue working with the `credit.csv` data set to predict the default probabilities. Split the data into a stratified training data set with 70% of the observations and a test data set with the remaining 30% of the observations. Use **a radial kernel support vector classifier**. Identify with cross-evaluation the “optimal” cost parameter. Evaluate your optimal model with the confusion matrix for the test dataset and the `ROC` curve including the `AUC.` Show your code. [5 points]
+
+```{r}
+credit <- read.csv('credit.csv')
+creditSplit <- initial_split(credit, breaks=7, prop=0.7, strata="default")
+df_train <- training(creditSplit)
+df_test <- testing(creditSplit)
+```
+
+```{r}
+# Tune an SVM with radial basis kernel
+set.seed(1)  # for reproducibility
+credit_svm <- train(
+  default ~ ., 
+  data = df_train,
+  method = "svmRadial",               
+  preProcess = c("center", "scale"),  
+  trControl = trainControl(method = "cv", number = 10),
+  tuneLength = 10
+)
+# Plot results
+ggplot(credit_svm) + theme_light()
+summary(credit_svm$bestTune)
+```
+
+```{r}
+# Control params for SVM
+ctrl <- trainControl(
+  method = "cv", 
+  number = 10, 
+  classProbs = TRUE,                 
+  summaryFunction = twoClassSummary  # also needed for AUC/ROC
+)
+
+# Tune an SVM
+set.seed(1)  # for reproducibility
+credit_svm_auc <- train(
+  default ~ ., 
+  data = df_train,
+  method = "svmRadial",               
+  preProcess = c("center", "scale"),  
+  metric = "ROC",  # area under ROC curve (AUC)       
+  trControl = ctrl,
+  tuneLength = 10
+)
+
+credit_svm_auc$bestTune
+```
+```{r}
+confusionMatrix(predict(credit_svm_auc,df_test),as.factor(df_test$default))
+```
+
+```{r message=FALSE, warning=FALSE}
+library(pROC)
+pred_default_prob <- predict(credit_svm_auc,df_test,type = "prob")
+roc_1 <- roc(as.factor(df_test$default), pred_default_prob[,"yes"])
+plot(roc_1, col="red", lwd=2)
+title(main = paste('Area under the curve: ',auc(roc_1)))
+```
+
+## Task 3
+
+Read up on section 14.3.2 of Boehmke et al. and the support vector regression code in Chapter 14: Support Vector Machines (koalaverse.github.io) underneath Figure 14.10. *Estimate a 20% test sample of the `Ames dataset` the predicted `Sale_Price.` `Scatterplot` the observed and predicted sales price for the test sample against each other.* Show your code. [5 points]
+
+```{r message=FALSE, warning=FALSE}
+ames <- make_ames()
+# Stratified Random Sampling
+amesSplit <- initial_split(ames, breaks=8, prop=0.8, strata="Sale_Price")
+ames_train <- training(amesSplit)
+ames_test <- testing(amesSplit)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+library(kernlab)
+set.seed(1)
+ames_svm <- ksvm(Sale_Price ~ .,data = ames_train,kernel = 'rbfdot',kpar = 'automatic',
+                          type = 'eps-svr',epsilon = 0.1)
+# ames_svm <- train(
+#   Sale_Price ~ ., 
+#   data = ames_train,
+#   method = "svmRadial",               
+#   preProcess = c("center", "scale"),  
+#   trControl = trainControl(method = "cv", number = 5),
+#   tuneLength = 10
+# )
+# ggplot(ames_svm) + theme_light()
+```
+
+```{r message=FALSE, warning=FALSE}
+y.pred <- predict(ames_svm,newdata = ames_test)
+svm_result <- data.frame(predict = y.pred, observed = ames_test$Sale_Price)
+ggplot(svm_result,aes(x=predict, y=observed)) +
+  geom_point() +
+  geom_smooth(method=lm, se=FALSE, fullrange=TRUE)
+
+```
+
+# Part 2: Neural Networks [4 points]
+You will us the   code provided to you in the script `Task4&5.R` and answer the following questions
+
+## Task4: : Comparison of logistic regression with a one-layer one-neuron network. [2 points]
+
+```{r message=FALSE, warning=FALSE}
+#install.packages("neuralnet")
+RNGversion("3.5.3"); set.seed(12345)
+library(neuralnet)
+help("neuralnet")
+
+## custom normalization function
+normalize <- function(x) { (x - min(x)) / (max(x) - min(x)) }
+
+## create the custom soft-plus activation function
+softplus <- function(x) { log(1 + exp(x)) }
+
+data(Boston, package="MASS")
+summary(Boston)
+
+# ## Exclude home values that were trunctated at $50k
+# sel <- Boston$medv == 50
+# table(sel)
+# Boston <- Boston[!sel,]
+
+## apply normalization to entire data frame
+nBoston <- as.data.frame(lapply(Boston, normalize))
+
+##
+## Investigation of model structure without split into training and test sample
+##
+
+## Logistic Regression possible here because y transformed into (0,1). 
+## This is just for demonstration purposes. It should NOT be done in practice!
+## Significance not relevant here
+logit01 <- glm(medv ~ ., data = nBoston, family=binomial())
+summary(logit01)
+car::vif(logit01)
+logit01.pred <- predict(logit01, type="response")
+cor(logit01.pred, nBoston$medv)
+```
+
+
+```{r fig.height=6, fig.width=8}
+## Neural Network Model
+nnet01 <- neuralnet(medv ~ ., data = nBoston, act.fct="logistic",
+                    linear.output = TRUE, stepmax=10000, hidden = c(1))
+
+## plot the network with weights and bias terms
+plot(nnet01)
+```
+
+```{r fig.height=6, fig.width=8}
+##
+## Compare logistic parameters to NN weights. 
+## Note intercept and bias coefficients are different.
+##
+# str(nnet01)
+data.frame(Logistic=coef(logit01), NeuroNet=nnet01$weights[[1]][[1]])
+plot(coef(logit01)~nnet01$weights[[1]][[1]], 
+     xlab="Neural Network", ylab="Logistic", 
+     main="NN Weights against Logistic Coefficients")
+text(nnet01$weights[[1]][[1]], coef(logit01), names(coef(logit01)))
+abline(h=0, v=0, lty=3)                       # Reference frame
+abline(a=0, b=1, lty=5)                       # Identity line
+```
+
+```{r}
+## evaluate the prediction
+nnet01.pred <- predict(nnet01, nBoston[,1:13])
+plot(nnet01.pred~nBoston$medv)
+cor(nnet01.pred,nBoston$medv)
+```
+
+```{r}
+## back to original scale
+medv.pred <- nnet01.pred * (max(Boston$medv)-min(Boston$medv)) + min(Boston$medv)
+medv.error <- Boston$medv - medv.pred
+hist(medv.error/Boston$medv)  # Error between -120% and 50% of the original median value
+```
+
+### [a] Why can logistic regression be used technically for a normalized dependent variable? *Notes: You can ignore the warning message here and that the specified model performs poorly.*
+
+After the normalization transformation, the range of our dependent variable would be 0 to 1, which fits the assumption from the logistic regression.
+
+### [b] Which options in the neuralnet( ) function call makes the neural network comparable to the logistic regression model?
+
+set activation function for neuron to logistic function (`act.fct="logistic"`).
+
+### [c] Are the network weights comparable to the logistic regression coefficients? 
+
+Yes, all coefficients are in the same direction, which ensures the positiveness or negativeness of correlation.
+
+### [d] Why are the intercept and the bias coefficients allowed to differ?
+
+the logistic activation function is applied on the linear combination leading to 2.65153, which includes the bias -1.85143 as intercept. This then has the bias 0.112 added to it with a linear activation function. Therefore, the predicted probabilities are all larger than 0.112. So in effect, the intercept is counted twice.
+
+## Task 5
+
+Use of cross-validation to avoid model overfitting and identify the proper neural network specification for a small dataset. [2 points] *Notes: This task is best performed with Microsoft’s Open   version on a computer with multiple processor cores because neural networks make heavy use of tensor operations. Alternatively, one could rewrite the loops with foreach to allow for parallel execution of the loops. The run time can vary between 20-50 minutes depending on the   version and computer capabilities.*
+
+### [a] Describe how is the `cross-validation algorithm` implemented in the `R` code.
+
+```{r}
+set.seed(12345) # to guarantee repeatable results
+K <- 4                                            # number of folds
+idx <- sample(1:nrow(nBoston))
+folds <- cut(idx, breaks=K, labels=FALSE)
+nOfNeurons <- 4:6                                # value range of neuron numbers in first layer
+scoreCor <- matrix(0, nrow=length(nOfNeurons), ncol=K)
+```
+
+`k = 4` means we cut our dataset into 4 parts. Each time, we choose one part as our testing data and the rest 3 parts as the training data. And, record the correlation between their prediction and ground truth.
+
+### [b] What is the maximal number of neurons before the model overfits the Boston median home value data.
+
+```{r}
+system.time(
+  for (j in 1:length(nOfNeurons)){
+    for (i in 1:K){
+      cat("processing neurons=",nOfNeurons[j],"for fold #", i, "\n")
+      valIdx <- which(folds == i, arr.ind=TRUE)
+      test <- nBoston[valIdx, ]
+      train <- nBoston[-valIdx, ]
+      set.seed(12345) # to guarantee repeatable results
+      medvNN <- neuralnet(medv ~ ., data = train,  linear.output = TRUE,
+                         stepmax=10000000, hidden = nOfNeurons[j], act.fct = softplus)
+      result <- predict(medvNN, test[1:13])
+      scoreCor[j,i] <- cor(result, test$medv)
+    } #end::for_i
+  } #end::for_j
+) #end::system.time
+colnames(scoreCor) <- c("Fold 1", "Fold 2", "Fold 3", "Fold 4")
+result <- data.frame(nOfNeurons, Average=rowMeans(scoreCor), scoreCor)
+
+## Evaluate fit by number of nodes in a one-layer neural network.
+round(result,3)   
+```
+
+Seems 5 neurons is good enough for our dataset. 
+
+```{r message=FALSE, warning=FALSE}
+parallel::stopCluster(cl)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

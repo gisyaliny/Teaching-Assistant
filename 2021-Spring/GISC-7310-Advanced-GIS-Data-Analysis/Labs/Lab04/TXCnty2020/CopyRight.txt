@@ -1,0 +1,3 @@
+The data in the bundle TXCntyVars2020.pdf can be freely used for data analyses as long as 
+the author Dr. Michael Tiefelsdorf (tiefelsdorf@utd.edu) is acknowledged. The data cannot 
+be integrate into open-source or other software packages.

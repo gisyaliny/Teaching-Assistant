@@ -1,0 +1,178 @@
+---
+title: "Lab05: Logistic & Poisson Regression"
+author: "Yalin Yang"
+date: "`r Sys.Date()`"
+output:
+  html_notebook:
+    toc: TRUE
+    toc_float: TRUE
+  word_document:
+    toc: no
+    toc_depth: '3'
+--- 
+
+```{r message=FALSE, warning=FALSE}
+# load helper package
+library(car)
+data(Mroz)
+attach(Mroz)
+```
+
+# Task 2 Model discussion [2 points]
+
+## Qa
+[a] Build a logistic regression model for the probability of lfp with these independent variables and give the 95% confidence intervals around the estimated logistic regression parameters
+
+```{r}
+GLM.01 <- glm(lfp ~ k5 + k618 + age + wc + hc + lwg + inc, family=binomial(logit), trace=TRUE, data=Mroz)
+summary(GLM.01)  #slope is for logit, not for probability
+```
+```{r}
+vif(GLM.01)
+```
+```{r message=FALSE, warning=FALSE}
+# confint(GLM.01, level=0.95, type="Wald",trace = FALSE)
+```
+
+## Qb
+Discuss your model output in the light of your stated hypotheses from task 1.
+
+Almost all variables fit the previous assumption with a significant impact on the dependent variable except 'k618' and 'hc'.
+For 'k618', I guess since children within 6 to 18 would stay at schools most of the time, it is not a big problem for moms to take care of them after work.
+For "husband education", it surprised me it does not have a significant influence on the dependent variable. However, family income still has a significant impact but a low slope, which means women are more independent than I assumed.
+
+## Qc
+Interpret the calibrated logistic regression model in terms of **probabilities** by using an **all effects plot** (i.e., the “other” variables are at their average level).
+
+```{r fig.width=12, message=FALSE, warning=FALSE}
+library(effects)     # Important: Use version 3.0-6 or newer
+plot(allEffects(GLM.01), type="response", ylim=c(0,1), ask=FALSE)
+```
+K5: A higher value leads to a lower probability. For most families have 0 or 1 child with the age from 0 to 5, they have 60% and 30% probability to take work, respectively. If this value larger than 1, wives are very unlikely to take works.
+K618: The regression line is almost flat, which means not many influences from it. The average around 58% means there are 58% of our observed records have a work.
+Age: Higher age lower probability to work. The average age of 45 years old corresponds to a 50% probability to work.
+Wife Education: A higher education level corresponds to a higher probability to work.
+Husband education: flat, not many impacts.
+Family income: A Higher family income would lower the probability to work.
+Expected wage rate：A Higher expected wage rate would increase the probability to work, and this slope is sharpest since the wage is the first considering when decided to work or not.
+
+# Task 3 : Perform a likelihood ratio test [1 point]
+
+Refine the model from task 2 by dropping all variables which you deem to be not relevant. Test whether these variables jointly have explanatory power or not. Properly state in statistical terminology the null and the alternative hypotheses. 
+
+```{r}
+GLM.02 <- glm(lfp ~ k5 + age + wc + lwg + inc, family=binomial(logit), trace=TRUE, data=Mroz)
+summary(GLM.02)  #slope is for logit, not for probability
+```
+
+```{r}
+## Likelihood Ratio Test
+anova(GLM.02,GLM.01,test = 'LRT')
+```
+
+# Task 4: Conditional effects plots [2 points]
+
+Generate conditional effects plots based on the refined model for the probability of labor force participation for the income variable inc. Interpret the plots.
+Assume two scenarios with the following values levels of the additional independent variables in the logistic regression model:
+
+Discuss your plots for the two scenarios: How does the labor force participation probability vary for women in both groups? (conditional effects plot)
+
+```{r fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
+# Low prob respondent
+eff.GLM.low <- effect("inc",GLM.02,
+                      given.values = c(k5 = 2,age = 49,"wcyes" = 0,lwg = 0.81))
+plot(eff.GLM.low, type="response", ylim=c(0,1), ylab=expression(Pr(Y[i]=="Close")), 
+     main="Low Probability Respondents")
+```
+Low Probability Case:  If there is a 49 years old woman with 2 children under 5, and she does not have a college degree, it is very unlikely for her to work. As shown in graphs, unless the family income is pretty low, which means she may have to work for a living,  the probability of working is near to 0.
+
+```{r fig.height=8, fig.width=12, warning=FALSE}
+# High prob respondent
+eff.GLM.hi <- effect("inc",GLM.02,
+                     given.values=c(k5 = 0,age = 49,"wcyes" = 1,lwg = 1.40))
+plot(eff.GLM.hi, type="response", ylim=c(0,1), ylab=expression(Pr(Y[i]=="Close")), 
+     main="High Probability Respondents")
+```
+High Probability Case: There is a 36 years old woman without children under 5. Additionally,  she has a college degree, and the wage for her is over her expected. Unless her family is rich enough, she has a strong motivation to work. But when the probability goes up, the uncertainty also raises. Since not many people have that high family income, the sample size is small.
+
+**Part 2: Poisson and Logistic Regression [4 points]**
+
+Use the data-frame cancer in the library CancerSEA. You can install the library with the   command install.packages("Drive:\\Path\\CancerSEA_0.9.6.tar.gz", repos=NULL). Show your results and briefly discuss them.
+
+# Task 5
+Run a Poisson regression model on the annual raw counts of white male lung cancer deaths for the period 1970 to 1994. Make sure to use a proper offset in the link-function specification to account for the expected number of death based on the population size and age distribution in each State Economic Area. [1 points]
+
+Select as independent variables $~URBRUR+RAD_MD+I(RAD_MD^2)+TOBACCO$.
+
+```{r message=FALSE, warning=FALSE}
+library(CancerSEA)
+data(cancer)
+attach(cancer)
+```
+
+
+```{r}
+lm.poisson <- glm(L_WM_P2_CN~URBRUR+RAD_MD+I(RAD_MD^2)+TOBACCO, offset=log(L_WM_P2_EX),family=poisson, data=cancer)
+summary(lm.poisson)
+```
+
+
+
+```{r fig.height=8, fig.width=12}
+plot(allEffects(lm.poisson))
+```
+The expected number of cases, given the observed age-distribution, is given by the variable L_WM_P2_EX. It will become the offset. The log-transformation needs to be applied on this offset to match the link function of the Poisson model.
+
+# Task 6
+Run a logistic regression model for the directly age-standardized white male lung cancer death rates per 100.000 persons at risk. Caution: you need to re-scale the rates, so they become probabilities. Since we are dealing with a binomial distribution rather than a binary distribution you need to specify a (half of the population) proper weight variable to account for the population at risk, i.e., half of the population in 1980. [1 points]
+Select as independent variables $~URBRUR+RAD_MD+I(RAD_MD^2)+TOBACCO$.
+
+```{r fig.height=8, fig.width=12}
+cancer$L_WM_P2_RT_rate <- cancer$L_WM_P2_RT/100000
+hist(cancer$L_WM_P2_RT_rate)
+```
+
+```{r message=FALSE, warning=FALSE}
+GLM.01 <- glm(L_WM_P2_RT_rate~ URBRUR+RAD_MD+I(RAD_MD^2)+TOBACCO, family=binomial(logit), weights = (POP1980/2),trace=TRUE, data=cancer)
+summary(GLM.01)  #slope is for logit, not for probability
+```
+# Task 7
+For the logistic regression model from task 6 generate a conditional effects plot with respect to RAD_MD (all other variable at their average levels). Make sure to have probabilities on y-axis and not logits. [1 point]
+
+```{r fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
+plot(allEffects(GLM.01), type="response", ylim=c(0.0005,0.0009))
+```
+Compared to the Poisson model evaluating lung cancer the logistic model is not as significant (see standard errors and width of the confidence intervals) anymore. The urban-rural effect is even insignificant now. The deviance dropped only by 35%.
+
+# Task 8 
+Rerun the model from task 6 allowing explicitly modeling potential over-dispersion. Compare both models and interpret the estimated over-dispersion parameter. [1 point]
+
+```{r}
+GLM.02 <- glm(L_WM_P2_RT_rate~ URBRUR+RAD_MD+I(RAD_MD^2)+TOBACCO, family=quasibinomial, weights = (POP1980/2),trace=TRUE, data=cancer)
+summary(GLM.02)  #slope is for logit, not for probability
+```
+This model indicates that we observe under-dispersion of 0.55. Note: If as population at risk MalePop=POP1980/2 instead of POPATRISK1982 would have been used, over-dispersion would be around 3. For either over or under-dispersion the regression coefficients are not changing, however, depending on the degree of dispersion the standard errors and thus the t-values are changing. For under-dispersion the standard errors shrink, whereas, for over-dispersion they increase.
+
+**Part 3  Modeling Interregional Migration with Poisson Regression [2 points]**
+
+# Task 9 
+Estimate the basic gravity model $E(m_{ij}) = \beta_0 * p_i^{\beta_1} * p_j^{\beta_2} * d_{ij}^{\beta_3}$ with Poisson regression and transforming the right-hand-side of the equation into a linear equation in the unknown regression coefficients $\beta_0,\beta_1,\beta_2,\beta_3$ by applying the logarithm. [1 point]
+
+```{r}
+upfing1 <- foreign::read.spss("G:\\UTD_Classes\\2020Spring\\GISC7310_AdvancedDataAnalysis\\Lab05\\UPFING.SAV", use.value.labels=TRUE, to.data.frame=TRUE)
+```
+
+```{r}
+mod01 <- glm(MIJ~log(PI)+log(PJ)+log(DIJ), data=upfing, family=poisson,subset=(I!=J))
+summary(mod01)
+```
+
+# Task 10
+Interpret the estimate regression coefficients in terms of their estimated signs. How do the origin and destination populations as well as the interprovincial distances influence the migration flows? [1 point]
+
+The regression coefficients of origin and destination populations are positive whereas the regression coefficient of distance is negative. Consequently, with increasing population sizes the migration flow between an origin-destination pair increases. Because the magnitude of the regression coefficient associated log(PI) is larger than that log(PJ), large origin populations more emissive compare to the attractions based on large destination population sizes. The inter-regional distance becomes a deterrence of migration. The further distance between two regions, the less migration flows are expected.
+
+```{r fig.height=10, fig.width=15}
+plot(allEffects(mod01))
+```
+

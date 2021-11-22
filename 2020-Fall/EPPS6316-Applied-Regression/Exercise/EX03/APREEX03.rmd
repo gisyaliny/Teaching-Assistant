@@ -1,0 +1,90 @@
+
+```{r fig.height=5, fig.width=8}
+state_school <- foreign::read.spss('StateSchool.sav',to.data.frame = TRUE)
+car::scatterplotMatrix(~SAT+Expend+PctSAT, data=state_school, main="Relationship between SAT Score and a set of exogenous variables", pch=1, smooth=list(span = 0.35,lty.smooth=1, col.smooth="red", col.var="red"), regLine=list(col="green"))
+
+```
+
+```{r}
+lm1 <- lm(SAT~Expend,data = state_school)
+summary(lm1)
+lm2 <- lm(SAT~PctSAT,data = state_school)
+summary(lm2)
+```
+```{r}
+lm3 <- lm(SAT~Expend+PctSAT,data = state_school)
+summary(lm3)
+```
+
+```{r}
+car::scatterplot(resid(lm3)~PctSAT,data = state_school,main="Partial Regression Leverage Scatterplot",pch=1, smooth=list(span = 0.35,lty.smooth=1, col.smooth="red", col.var="red"), regLine=list(col="green"))
+```
+
+
+
+```{r fig.height=8, fig.width=12}
+provItaly <- foreign::read.dbf("provinces.dbf")
+car::scatterplotMatrix(~TOTFERTRAT+ILLITERRAT+FEMMARAGE+DIVORCERAT+TELEPERFAM, data=provItaly, main="Relationship between total fertility rate and a set of exogenous variables", pch=1, smooth=list(span = 0.35,lty.smooth=1, col.smooth="red", col.var="red"), regLine=list(col="green"))
+```
+
+```{r}
+boxplot(TOTFERTRAT~ REGION,data = provItaly,horizontal = TRUE)
+```
+```{r}
+lm1<- lm(TOTFERTRAT~ ILLITERRAT+ FEMMARAGE+ DIVORCERAT+ TELEPERFAM, data=provItaly)
+summary(lm1)
+```
+
+```{r}
+prov <- as.data.frame(scale(provItaly[,13:17]))
+beta.lm <- lm(TOTFERTRAT~., data=prov)
+coef(beta.lm)
+coefplot::coefplot(beta.lm, sort="magnitude", intercept=F)
+```
+
+```{r}
+lm2 <- lm(TOTFERTRAT~FEMMARAGE+DIVORCERAT+ILLITERRAT+TELEPERFAM+REGION,data=provItaly)
+summary(lm2)
+```
+
+```{r}
+anova(lm2, lm1)
+```
+
+```{r fig.height=9, fig.width=15}
+load('DummyInteraction.RData')
+summary_model <- function(df,n){
+  
+  car::scatterplot(y~x|d,smoother=F,boxplots="xy",data=df,main=paste("Model",n))
+  
+  full.model <- lm(y~x*d, data=df)
+  Intercept.model <- lm(y~x+d, data=df)
+  slope.model <- lm(y~x:d, data=df)
+  means.model <- lm(y~d,data=df)
+  plain.model <- lm(y~x, data=df)
+  
+  model_lst <- list(plain.model,means.model,Intercept.model,full.model,slope.model)
+  model_summary <- lapply(model_lst, summary)
+
+  return(model_summary)
+}
+```
+
+```{r fig.height=7, fig.width=8}
+df1_summary = summary_model(df1,1)
+df1_summary
+```
+
+```{r fig.height=7, fig.width=8}
+df_summary = summary_model(df5,5)
+df_summary
+```
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,24 @@
+```{r}
+1- pbinom(5, size=20, prob=0.25)
+```
+
+```{r}
+1- pbinom(6, size=20, prob=0.25)
+```
+
+```{r}
+pbinom(8, size=20, prob=0.25) - pbinom(4, size=20, prob=0.25)
+```
+
+```{r}
+1-(pbinom(8, size=20, prob=0.25) - pbinom(3, size=20, prob=0.25))
+```
+
+```{r}
+(ppois(6, lambda = 2)-ppois(0, lambda = 2))
+```
+
+```{r}
+(1-ppois(6, lambda = 2))
+```
+

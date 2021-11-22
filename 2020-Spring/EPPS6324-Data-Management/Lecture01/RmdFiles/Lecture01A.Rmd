@@ -1,0 +1,116 @@
+---
+title: 'Chapter 27: R Markdown Notes'
+author: "Michael Tiefelsdorf"
+date: "1/21/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Purpose of R Markdown
+R Markdown document are an elegant way of integrating all steps of your data analysis into one document. This document can interleave 
+
+  * a precise reference to the used _data_ and their preparation for the analysis
+  * the _code_ used to perform the analysis, 
+  * the _results_ of the analysis, which may be the procedure _output_, _figures_ and _tables_,
+  * an _explanation_ and _motivation_ of the selected analysis strategy,
+  * an _interpretation_ of the results, and
+  * a collection of _notes_ and _ideas_ for future analyses.
+  
+This integrated documentation will help you to remember the nuances of your analysis after and your collaborators to catch-up with what has been done so far. Furthermore, it allows you to communicate the analysis to decision makers.
+
+Ultimately, properly assembled R Markdown documents promote the paradigm of __reproducible research__, without which no progress is possible. Only if independent researchers are able to critically scrutinize, potentially debug and replicate the results, confidence in the results is instilled.
+
+# Starting a R Markdown Document
+All necessary libraries to generate R Markdown documents come standard with __RStudio__. To start a new R Markdown document in __RStudio__ you go to `File > New File > R Markdown...`, which gets you to the interface ![NewDoc](NewRmdInterface.JPG)
+
+Subsequently save the new document with a descriptive file name in its own folder. It is advisable to collect all ancillary files, which support your document, into the same folder.
+
+# Basic Document Structure
+Each Markdown document consists of plain ASCII text having the file extension __.RMD__. It two main components are
+
+  * the _YAML header_ which defines common formatting properties, the document class etc., and
+  * the document's text _interleaved_ with specific formatting statements such as
+      + commands structuring the text into __sections__,
+      + commands formatting the text like _italics_ or __bold__,
+      + references to items, websites etc.,
+      + _inline_ and _display_ R code __chunks__ with with their output, and
+      + _inline_ and _display_ $\LaTeX$ __equations__, etc.
+
+# Workflow
+By default a R Markdown file complies, a.k.a. __Knit__ into a self-contained __.HTML__ file. At the console this can be achieved with the command 
+```{r render, eval=FALSE}
+rmarkdown::render("Lecture01A.Rmd")
+```
+More elegantly, clicking on the __Knit__ button or issuing the key strokes __Cntr-Shift-K__. By default, this generates a __.HTLM__ document in the RStudio _Viewer_. Internally, however, the __.Rmd__ file is first converted into a universal __.md__ file with _knitr_ which then is converted with _pandoc_ into one of many formats, such as, __.HTML__, __.PDF__ or __.DOCX__.
+
+### Exercise 1
+Generate a R Markdown document, evaluate its structure, run code chunks and knit the document.
+
+# Formatting the Document
+R Markdown is an easy to read and write markup language based on __Pandoc__. See __Pandoc__'s formatting commands in either in `Help > R Markdown Quick Reference` or `Help > Cheatsheets > R Markdown CheatSheet`.
+
+### Exercise 2
+  * Generate a formatted text with sections and subsection,
+  * Make text __bold__ or _italics_,
+  * Add a list,
+  * Add a __HTML__ link,
+  * Import the file _diamond-sizes.Rmd_ from <https://github.com/hadley/r4ds/tree/master/rmarkdown>. 
+  * Run and explore the document.
+  * Write a text describing the most striking features of the distribution.
+  
+# Code Chunks
+Display code chunks can be enter by the keyboard shortcut __Ctrl-Alt-I__ or the menu button `Insert` and with the cursor inside the chunk run with the keyboard shortcut __Ctrl-Shift-Enter__. 
+
+In contrast inline code chunks must be enter manually by pasting the delimiting symbol `'` into the text and wrapping the inline R statement within the symbols `'r our_code'`. Inline chunks have no options and just produce output but do not echo the code.
+
+## Chunk Labels
+Each chunk can have a label, which makes it possible to scroll through a list of chunks. For chunks, which produce figures, labels allow to refer to the figures throughout the document.
+
+## Chunk Options
+Chunk options allow to control the execution of the code and waiving with the text. For all options see `Help > Cheatsheets > R Markdown CheatSheet`.
+
+Key options are
+
+  * `eval=FALSE` prevents the code from execution.
+  * `include=FALSE` runs the code but does not show anything in the document.
+  * `echo= FALSE` shows the output but not the code.
+  * `results = "hide"` shows the code but not the output.
+
+Beside from options for each chunk one can also set _global_ options, which apply to all chunks with the statement `knitr::opts_chunk$set(options)`.
+
+# Tables
+ The best way to show formatted data tables is to use the `kitr::kable()` function. For example:
+```{r kableTable}
+knitr::kable(
+  mtcars[1:5, ],
+  caption="A knitr::kable table"
+)
+```
+
+For additional table option see again the R Markdown CheatSheet.
+
+# Caching
+R commands can take a long time and every time a document is knit all code chunks are re-evaluated. One can skip the re-evaluation as long as neither the code or its associated data change. Internally, the output and data can be save into a cache. This is achieved with the chunk options:
+
+  * `cached=TRUE` save the results of a chunk into a cache on the disk.
+  * `dependson="data-frame"` re-evaluated a cached chunk should its associated _data-frame_ change.
+  
+A cache can be cleared with the command `knitr::clean_cache()`.
+
+### Exercise 3
+Continue with the `diamond-sizes.Rmd` and write the function
+```{r commaFct}
+comma <- function(x) format(x, digits=3, big.mark=",")
+comma(1234567)
+comma(3.1415)
+```
+
+  * Set the global options to `echo=FALSE` and `cache=TRUE`.
+  * Add a chunk that evaluates the __price__ with the __carat__ with a scatterplot. Name the chunk and check if it shows up named in the list of content. 
+  * Evaluate where on your disk the chunk results are cached.
+  * Select the 5 largest diamonds and generate a table with the main attributes using the `comma()` function.
+  
+  

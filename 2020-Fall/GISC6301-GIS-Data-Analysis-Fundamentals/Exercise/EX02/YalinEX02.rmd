@@ -1,0 +1,60 @@
+---
+title: "Exercise 02 "
+author: "Yalin Yang"
+date: "`r Sys.Date()`"
+output:
+  word_document:
+    toc: no
+    toc_depth: '3'
+  html_notebook:
+    toc: yes
+    toc_float: yes
+    fig_width: 9
+    fig_height: 6
+  pdf_document:
+    toc: no
+    toc_depth: '3'
+---
+
+```{r}
+library(foreign)
+concord <- read.spss('Concord1.sav',to.data.frame = TRUE)
+```
+
+```{r}
+sapply(na.omit(concord[,2:4]), mean)
+```
+
+```{r}
+summary(concord)
+```
+
+```{r}
+meanWater <- rowMeans(concord[c("water79","water80","water81")],na.rm=T)
+```
+
+```{r}
+above_mean <- concord$water81 > meanWater
+concord$case[above_mean]
+```
+
+
+```{r}
+set.seed(123)
+sample(concord$case,10,replace = FALSE)
+```
+
+
+```{r}
+concord$seqID <- 1:nrow(concord)
+```
+
+```{r}
+ma <- as.matrix(concord[c("peop80","peop81")])
+ma
+```
+
+```{r}
+ifelse(concord$water79 <= concord$water80,'increase','decrese')
+```
+

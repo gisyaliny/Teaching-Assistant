@@ -1,0 +1,145 @@
+
+
+
+```{r}
+library(foreign)
+Concord <- read.spss('Concord1.sav', to.data.frame=TRUE)
+```
+
+```{r}
+summary(lm(income~educat, data=Concord))
+```
+
+```{r}
+reg <- lm(income~educat, data=Concord)
+cbind("Coef"=coef(reg), confint(reg, level=0.99))
+```
+
+```{r fig.height=6, fig.width=9}
+regPred <- predict(reg, interval="prediction", level = 0.90)
+# regPred <- predict(reg, interval="prediction", level = 0.90)
+ConcordPred <- data.frame(Concord,regPred)
+plot(income~educat,data=ConcordPred, main = "Point Prediction and Confidence Interval")
+lines(ConcordPred$educat,ConcordPred$fit,col="red")
+lines(ConcordPred$educat,ConcordPred$lwr,col="green")
+lines(ConcordPred$educat,ConcordPred$upr,col="green")
+abline(h=mean(ConcordPred$income), lty=3)
+abline(v=mean(ConcordPred$educat), lty=3)
+```
+
+
+```{r}
+library(AER);library(car);library(e1071)
+data(CPS1985)
+summary(powerTransform(CPS1985$wage~1))
+```
+
+```{r fig.height=5, fig.width=15}
+par(mfrow = c(1,3))
+hist(car::bcPower(CPS1985$wage, lambda=1),breaks = 12,main = 'lambda = 1',xlab = 'x')
+hist(car::bcPower(CPS1985$wage, lambda= -0.0658 ),breaks = 12,main = 'lambda = -0.0658',xlab = 'x')
+hist(car::bcPower(CPS1985$wage, lambda= -1 ),breaks = 12,main = 'lambda = -1',xlab = 'x')
+```
+
+```{r}
+skewness(CPS1985$wage)
+skewness(car::bcPower(CPS1985$wage, lambda=1))
+skewness(car::bcPower(CPS1985$wage, lambda=-0.0658))
+skewness(car::bcPower(CPS1985$wage, lambda=-1))
+```
+
+```{r}
+shapiro.test(car::bcPower(CPS1985$wage, lambda=-1))
+```
+
+
+
+```{r fig.height=6, fig.width=9}
+HPRICE2 <- foreign::read.dta('HPRICE2.DTA')
+scatterplot(price ~ dist , data = HPRICE2,pch=1, smooth=list(span = 0.35,lty.smooth=1, col.smooth="red", col.var="red"),regLine=list(col="green"))
+```
+
+```{r}
+## Transformation of independent variable
+summary(powerTransform(lm(dist~1, data=HPRICE2)))
+```
+
+```{r}
+## Transformation of dependent variable so residuals become approx. symmetric
+summary(powerTransform((lm(price~log(dist), data=HPRICE2))))
+```
+
+```{r}
+## Estimate the elasticity model
+elast.lm <- lm(log(price)~log(dist), data=HPRICE2)
+summary(elast.lm)
+```
+
+```{r}
+## Test for H0: beta_log(dist)=1
+slope <- coef(elast.lm)[2]
+se <- summary(elast.lm)$coefficients[2, 2]
+df <- nrow(HPRICE2) - 2
+(t.value <- (slope-1)/se) # Note E(slope)=1 under H0
+2*pt(-abs(t.value),df = df) # one-sided significance using cumulative distribution
+```
+
+```{r fig.height=6, fig.width=9}
+bcReverseMedian <- function(y, lambda){
+##  
+## Predicted Median of Reverse Box-Cox Transformation
+##
+  if (abs(lambda) < 1.0E-6)                                         #1.0E-6 matches bcPower=0
+    rev.med <- exp(y) else
+    rev.med <- (lambda*y+1)^(1/lambda)
+  return(rev.med)
+} # end:revBoxCoxMed
+
+bcReverseExpectation <- function(y, lambda, sigma){
+##
+## Predicted Expectation of Reverse Box-Cox Transformation
+##
+  if (abs(lambda) < 1.0E-6)                                         #1.0E-6 matches bcPower=0 
+    rev.exp <- exp(y+0.5*sigma) else
+    rev.exp <- (lambda*y+1)^(1/lambda)*(1+0.5*sigma*(1-lambda)/(lambda*y+1)^2)
+  return(rev.exp)
+} # end:bcRevExp
+
+plotBoxCox <- function(y, x, ylambda, xlambda){ 
+###################################################################
+## calibrates the model lm(bcPower(y,ylambda)~bcPower(x,xlambda))##
+## Performs a prediction in the transformed system               ##
+## Maps predicted values back into the untransformed system      ##
+###################################################################
+  require(car)
+  ## Transform both variables
+  y.bc <- bcPower(y,ylambda)
+  x.bc <- bcPower(x,xlambda)
+  ## Calibrate transformed model and perform prediciton
+  lm.mod <- lm(y.bc~x.bc)
+  sigma <- sum(lm.mod$residuals^2)/(length(lm.mod$residuals)-2)        # estimate residual variance
+  x.line <- data.frame(x.bc=seq(min(x.bc),max(x.bc),length.out=1000))  # get smooth line
+  pred.line <- predict(lm.mod,x.line)                                  # predict y along line
+
+  y.med.line <- bcReverseMedian(pred.line,ylambda)                     # predicted median
+  y.exp.line <- bcReverseExpectation(pred.line,ylambda,sigma)          # predicted expectation
+  x.med.line <- bcReverseMedian(x.line$x.bc,xlambda)                   # rescaled independent variable
+
+  ## Plot data in the original measurement system
+  plot(x,y,pch=20,                                                 
+       xlab=deparse(substitute(x)), ylab=deparse(substitute(y)),   
+       main="Predictions after Reverse Box-Cox Transformation")
+  ## Plot prediciton lines
+  lines(x.med.line,y.med.line,col="green",lwd=2)                       # conditional median
+  lines(x.med.line,y.exp.line,col="red",lwd=2)                         # conditional expectation
+  legend("topright",title="Conditional Predictions",inset=0.01,bg="white",
+         legend=c("Median Method","Expectation Method"),col=c("green","red"),lwd=2)
+  pred.pts <- predict(lm.mod)
+  pred <- data.frame(y= y, y.pred.med= bcReverseMedian(pred.pts,ylambda), 
+                     y.pred.exp= bcReverseExpectation(pred.pts,ylambda,sigma),x=x)
+  invisible(pred)
+} #end:plotBoxCox
+
+plotBoxCox(HPRICE2$price,HPRICE2$dist,0,0)
+```
+

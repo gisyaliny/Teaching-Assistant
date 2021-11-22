@@ -1,0 +1,95 @@
+
+```{r}
+load(file = 'Part1Data.RData')
+mytable1 <- xtabs(freq~X+Y, data=rbind(nn1,nn2,nn3))
+addmargins(mytable1)
+```
+
+```{r}
+mytable1 <- xtabs(freq~X+Y, data=nn1)
+vcd::spine(mytable1)
+?vcd::spine
+```
+
+```{r}
+tapply(nc1$X,nc1$G,mean)
+```
+```{r}
+tapply(nc2$X,nc2$G,mean)
+```
+```{r}
+tapply(nc3$X,nc3$G,mean)
+```
+
+```{r}
+boxplot(X~G,data = nc1)
+boxplot(X~G,data = nc2)
+boxplot(X~G,data = nc3)
+```
+
+```{r}
+cc_lst<- list(cc1,cc2,cc3)
+df <- as.data.frame(lapply(1:3, function(x) cor(cc_lst[[x]]$X1, cc_lst[[x]]$X2)))
+colnames(df) <- c("CC1","CC2","CC3")
+df
+```
+
+```{r}
+car::scatterplot(X1~X2,data = cc1,col =
+"black",regLine=list(col="green"),smooth=list(col.smooth="red",col.var ="red"))
+car::scatterplot(X1~X2,data = cc2,col =
+"black",regLine=list(col="green"),smooth=list(col.smooth="red",col.var ="red"))
+car::scatterplot(X1~X2,data = cc3,col = 
+"black",regLine=list(col="green"),smooth=list(col.smooth="red",col.var ="red"))
+```
+
+```{r}
+source('BerkleyTables.R')
+library(vcd)
+spine(t(AdmissByGenPropMat), main="Admission by Gender")
+```
+
+```{r fig.height=6, fig.width=8}
+par(mfrow = c(1,2))
+AdmissByDeptMale <- round(prop.table(AdmissByDeptMale,2), 2)
+spine(t(AdmissByDeptMale), main="Admission by Male")
+AdmissByDeptFem <- round(prop.table(AdmissByDeptFem,2),2)
+spine(t(AdmissByDeptFem), main="Admission by Female")
+```
+
+```{r}
+data(mtcars, package="datasets")
+car <- mtcars[ ,c("mpg","disp","hp","drat","wt","qsec")]
+corMat <- round(cor(car, method= "pearson"),2)
+corMat
+```
+
+```{r fig.height=8, fig.width=12}
+car::scatterplotMatrix(~mpg+disp+hp+drat+wt+qsec, data=car,main="Variables impacting the price of vehicles in 1993",col = "black", smooth=list(span = 0.35,lty.smooth=1,col.smooth="red",col.var="red"),regLine=list(col="green"))
+```
+
+```{r fig.height=6, fig.width=9}
+colors <- RColorBrewer::brewer.pal(11,"RdBu")
+colors <- rev(colors)
+car1 <- mtcars[ ,c("disp","wt","hp","qsec","drat","mpg")]
+corMat <- round(cor(car1, method= "pearson"),2)
+corrplot::corrplot(corMat,col=colors,method = "ellipse",diag=FALSE, addCoef.col="green")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

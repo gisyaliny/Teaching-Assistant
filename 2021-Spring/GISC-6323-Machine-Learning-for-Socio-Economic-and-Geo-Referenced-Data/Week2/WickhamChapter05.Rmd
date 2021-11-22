@@ -1,0 +1,557 @@
+---
+title: 'Chapter05: Transformations'
+author: "Michael Tiefelsdorf"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: 
+          collapsed: false
+    number_sections: true          
+    toc_depth: 3 
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo=TRUE, include=TRUE, highlight=TRUE, tidy=TRUE, fig.width=7.2)
+library(tidyverse)
+library(nycflights13)
+```
+
+# Introduction
+
+Data transformation refers to changes made to your dataset(s) in order to prepare it for visualization and/or modeling. Rarely will your data automatically be structured in the exact form you need, so it is important to know how to get it there. 
+
+The `dplyr` package, a core member of the _tidyverse_ family of packages, houses functions that are useful for performing common data transformation tasks. Using several functions within the package, we can subset data, create new variables, order data, and much more. This tutorial will focus in detail on several of these functions:
+
+  * `filter()`
+  * `arrange()`
+  * `select()`
+  * `mutate()`
+  * `group_by()`
+  
+A cheatsheet for the dplyr package and its functions can be found [here](https://resources.rstudio.com/rstudio-developed/data-transformation).
+  
+## Flights dataset 
+The dataset `flights` from the `nycflight13` package will be used for exercises and examples. This dataset is relatively large: It contains `r ncol(flights)` variables about `r nrow(flights)` flights scheduled to depart from New York City in the year 2013. 
+
+Make sure that the package `nycflights13` is installed and explore its online help. We can take a look at the dataset.
+```{r flights}
+flights
+```
+
+# Filter
+
+The `filter()` function is used to subset data rows based on the value or characteristics of one or more variables within the data frame. This is done through specification of logical statements, which are applied to every observation in the data frame to return a boolean vector. _TRUE_ observations are kept in the subset, while _FALSE_ are discarded.
+
+The `dplyr` functions all work similarly:
+
+1. The first argument is a data frame.
+1. The subsequent arguments describe what to do with the data frame, using the variable name(s).
+1. The result is a new data frame.
+
+Lets see how these rules apply to the `filter()` function by examining its documentation.
+```{r filterhelp, eval=FALSE}
+?dplyr::filter()
+```
+
+the `filter` function is structured with three possible arguments, `filter(.data, ..., . preserve = FALSE)`.  The _.data_ argument refers to the data frame that is being transformed
+
+The _..._ refers to a logical statement(s) that deals with the variables held within the specified data frame. More than one logical argument can be used.  
+
+The _.preserve_ argument determines whether the grouping structure of the data is recalculated, with a default value of _FALSE_ (meaning the argument does not have to be specified). More on grouping later.
+
+An example of the `filter()` function in action, which echos the first 10 rows of the filtered data frame:
+
+```{r filterexample}
+filter(flights, month==1, day==1)
+```
+
+The example specifies to filter the _flights_ data frame by selecting only observations that exhibit a "1" value for the `month` variable _and_ exhibit a "1"  value for the `day` variable. This corresponds to all data points in the data frame on January 1st.
+
+When testing for equality (as we did in our logical statement), we must use the `==` operator instead of the `=` operator. If we run the same example using `=`, R will not understand it, and will issue an error message asking whether we meant to use `==`. 
+
+```{r errormessage, error=TRUE}
+filter(flights, month=1, day=1)
+```
+
+In this case, R is treating `=` as an assignment operator, which is not an option within the `filter()` function. 
+
+## Comparison Operators
+
+We can use the `filter()` function to subset by more than just equality to some value. R provides standard comparison operators that can be used in the logical argument of the `filter()` function:
+
+  * `==` (equal to)
+  * `!=` (not equal to)
+  * `>` (greater than)
+  * `<` (less than)
+  * `>=` (greater than or equal to)
+  * `<=` (less than or equal to)
+
+### Comparison Operators Examples
+
+Only flights that travel farther than 1000 miles:
+```{r >1000}
+filter(flights, distance > 1000)
+```
+
+Flights that did not arrive right on time:
+
+```{r notontime}
+filter(flights, arr_delay != 0)
+```
+
+## Logical operators
+
+Things get more complicated when you want to specify multiple logical statements to your `filter` function. Typically, you will want to combine them with either an _and_ (`&`) operator, or an _or_ (`|`) operator. 
+
+Using `&` means that both logical conditions have to evaluate to `TRUE` for the observation to be included through the `filter()` function.
+
+Using `|` means that only one of the logical conditions has to evaluate to `TRUE` for the observation to be included.
+
+Another important operator is the `!`, which means _not_
+
+The diagram below makes it easy to understand the possible combinations of logical operators and their meaning via venn diagram. 
+
+```{r logical graph, echo = FALSE, out.width = "100%"}
+knitr::include_graphics("transform-logical.png")
+```
+
+### Logical operators examples
+
+Flights that left early _and_ arrived late:
+
+```{r leftearlyarrivedlate}
+filter(flights, dep_delay < 0 & arr_delay > 0)
+```
+
+
+Flights that departed either at least 5 minutes early _or_  at least 5 minutes late:
+
+```{r earlyorlate}
+filter(flights, dep_delay >= 5 | dep_delay <= -5)
+```
+
+Flights that did not leave from "LGA" airport:
+
+```{r notLGA}
+filter(flights, !(origin == "LGA"))
+```
+
+Alternatively, this example can be written like this (since there are only three options for `$origin`):
+
+```{r EWRorJFK, eval=FALSE}
+filter(flights, origin == "EWR" | origin == "JFK")
+##further simplified
+filter(flights, origin %in% c("EWR","JFK"))
+```
+
+## Missing values
+
+By default, `filter` will only include values that evaluate to `TRUE`. Therefore, records with missing values, i.e., variables with `NA`s values, will always be excluded. If you want to keep `NA` values in your filter subset, you must combine it with the `is.na()` function, which evaluates `NA`  values to `TRUE` when called upon a data frame variable. 
+
+Suppose you want to filter a data frame so that the subset includes only values greater than 1 and `NA` values. You could do so like this
+
+```{r}
+na_example <- tibble(x = rep(c(0,2,NA), 50))  # generate a data frame with values c(0,2,NA)
+filter(na_example, x > 1 | is.na(x))
+```
+
+## Exercises
+
+Find all flights that flew to Houston (destination IAH or HOU):
+
+```{r houston}
+filter(flights, dest == "IAH" | dest == "HOU")
+```
+
+How can we use `between()` in conjuction with `filter()`?
+
+```{r between}
+filter(flights, distance <= 1000 & distance >= 500)
+#alternatively
+filter(flights, between(distance, 500, 1000))
+```
+
+How many flight have missing dep_time? Why?
+
+```{r missingdep_time}
+filter(flights, is.na(dep_time))
+```
+
+# Arrange
+
+`arrange()` is less complicated in application than `filter()`. We can use it to sort the order of data by a certain variables or variables within the data frame. 
+
+What if we want to sort the _flights_ data frame by distance?
+
+```{r arrangedistance}
+arrange(flights, distance)
+```
+
+This is easy, but what if we want to do it by date? Since the date of each observation is separated into several variables (`year`, `month`, and `day`), this is slightly more complicated. We do it like this:
+
+```{r arrangedate}
+arrange(flights, year, month, day)
+```
+
+`arrange()` takes the year variable and arranges the data in ascending order according to it. Then for all observations with the same year, it orders them by the next argument, month. Finally, observations with the same year and month are ordered by the last argument, day. 
+
+By default, `arrange()` orders in ascending order. For character vectors, that means ordering from a-z. But what if we want to order them in descending order? We can do this with the help of the `desc()` function. 
+
+```{r descdistance}
+arrange(flights, desc(distance))
+```
+
+`NA` values are sorted to the bottom of the data frame when `arrange()` is called.
+
+## Exercises
+
+How can we sort all `NA` values to the start?
+
+```{r NAstart}
+arrange(flights, desc(is.na(air_time)))
+```
+
+Most delayed flights?
+
+```{r mostdelayed}
+arrange(flights, desc(dep_delay))
+```
+
+Fastest speed?
+
+```{r arrangespeed}
+arrange(flights, desc(distance/air_time))
+```
+
+# Select
+
+If you need to select specific variables (columns) within a data frame, you can use the `select()` function.
+
+Suppose we want to select the time variables, `origin`, and `dest` from our _flights_ dataframe.
+
+```{r selectexample}
+select(flights, year, month, day, origin, dest)
+```
+
+If the variables we want to select appear in order within the original data frame, we can simplify our code. For example, if we want to select the first 5 variables from the _flights_ data frame:
+
+```{r shorthandselect}
+select(flights, year:sched_dep_time)
+#alternatively
+select(flights, 1:5)
+```
+
+Note that the bounds are inclusive when selecting a chunk of variables using `:`.
+
+We can also use `-` to exclude variables from the data frame using `select()`. If we want to exclude `tailnum` and `flight`.
+
+```{r noid}
+select(flights, -tailnum, -flight)
+```
+
+## Helper Functions
+
+There are several functions that can be used within `select()`:
+ 
+  * `starts_with("")` : matches names that begin with "".
+```{r startswith}
+select(flights, starts_with("a"))
+```
+
+  * `ends_with("")` : matches names that end with "".
+```{r endswith}
+select(flights, ends_with("delay"))
+```
+
+  * `contains("")` : matches names that contain "".
+```{r contains}
+select(flights, contains("time"))
+```
+
+  * `everything()` : used to move some important variables to left most columns of data frame
+```{r everything}
+select(flights, air_time, distance, everything())
+```
+
+## Renaming
+
+`rename()` can be used to rename variables, but this is more usefully done by the `rename()` function. If we want to rename `tailnum` to `tail_num` and `dest` to `destination`.
+
+```{r rename}
+rename(flights, tail_num = tailnum, destination = dest)
+```
+
+Note the structure of the argument, __new_name = old_name__.
+
+## Exercises
+
+What happens if you include the name of a variable multiple times?
+
+```{r multiplevar}
+select(flights, origin, origin)
+```
+
+How do the `select()` helper functions deal with cases?
+
+```{r caseexample}
+select(flights, contains("TIME"))
+```
+
+By default, `contains()` and other helper functions ignore case. You can set the argument `ignore.case = FALSE` to override this. 
+
+```{r caseoverride}
+select(flights, contains("TIME", ignore.case = FALSE))
+```
+
+# Mutate
+
+`mutate()` creates new columns by transforming and calling functions on existing columns of a data frame. 
+
+If we want to create a new variable which displays the `air_time` in hours rather than minutes.
+
+```{r mutateairtimehr}
+mutate(flights, air_time_hr = air_time / 60)
+```
+
+Note the structure of the argument: new_variable = (transformation_of_old_variables)
+
+We can expand upon the last example to create an average speed of the airplane for each observation.
+
+```{r mutatespeed}
+mutate(flights, air_time_hr = air_time/60, average_speed = distance / air_time_hr)
+```
+
+## Transmute
+
+If you only want to keep your new variables in the output data frame after mutating, use the `transmute()` function.
+
+```{r transmute example}
+transmute(flights, air_time_hr = air_time / 60, average_speed = distance / air_time_hr)
+```
+
+Same arguments but now only the new variables are keep in the new data frame.
+
+## Useful Functions with Mutate
+
+There are a multitude of operators and functions that can be used with mutate in the creation of new variables. We have already arithmetic operators in our previous example (+, -, /, *, ^).
+
+### Aggregate Functions
+Some aggregate functions such as `mean()`, and `sum()` can be used in conjunction with arithmetic operators within `mutate()`. For example, we can calculate and record distance from mean of the `air_time` variable with:
+
+```{r distancefrommean}
+mutate(flights, mean_air_time = mean(air_time, na.rm=TRUE), var_time = air_time - mean_air_time)
+```
+
+### Modular Arithmetic
+
+  * `%/%` : integer division
+    + example: `x %/% 100`  takes each value in object _x_ and divides it by 100, but keep only the whole number and drops and decimal places
+  * `%%` : returns the remainder
+    + example: `x %% 100` takes each value in object _x_ and divides it by 100, and keep only the remainder
+    
+This is useful for separating hours from minutes when they are combined in a variable. For example, 5:17 formatted as 517. If we want to separate this into an hour value _5_ and a minute value _17_:
+
+```{r modular}
+transmute(flights, dep_time, hour = dep_time %/% 100, minute = dep_time %% 100)
+```
+
+### Logs
+
+There are several functions to take logarithms. Some example are:
+
+  * `log()`
+  * `log2()`
+  * `log10()`
+
+### Cumulative aggregates
+
+Some functions that create rolling aggregates are `cumsum()`, `cumprod()`, `cummin()`, `cummax()`, and `cummean()`.
+
+Here is an example of using `cumsum()` to aggregate the total distance traveled over time by outward bound NYC planes in 2013.
+
+```{r cumsum}
+## first make sure the data is order by date and time depearted
+cumsum_example <- arrange(flights, time_hour)
+## then create the new variable
+mutate(cumsum_example, cumsum_distance = cumsum(distance))
+```
+
+### Rankings
+
+`min_rank()`, `row_number()`, `dense_rank()`, `percent_rank()`, `cume_dist()`, and `ntile()`.
+
+If we want to rank rank `air_time`, we can use the `min_rank()` function within a `mutate()` function. By default, `min_rank()` will give the smallest value the smallest ranks. `desc()` function will override this is needed. 
+
+```{r rank}
+mutate(flights, rank_air_time = min_rank(air_time))
+```
+
+## Exercises
+
+Convert `dep_time` and `sched_dep_time` into number of hours after midnight.
+
+```{r hours after midnight}
+mutate(flights, dep_time_aftermidnight = ((dep_time %/% 100)*60) + dep_time %% 100, sched_dep_time_aftermidnight = ((sched_dep_time %/% 100)*60) + sched_dep_time %% 100)
+```
+
+Find 10 most delayed Flights using rank.
+
+```{r mostdelayedrank}
+mostdelayed_rank <-mutate(flights, most_delayed = min_rank(desc(dep_delay)))
+arrange(mostdelayed_rank, most_delayed)
+```
+
+# Grouped summaries
+The verb `summarize` collapses a data frame into a single row of summary statistics:
+```{r sum}
+  summarize(flights, meanDepDelay=mean(dep_delay, na.rm=TRUE),
+                     sdDepDelay=sd(dep_delay, na.rm=TRUE))
+```
+
+To obtain summary information of data sub-groups the data need to be first grouped into strata. The group memberships are saved with the data:
+```{r sumByGroup}
+  ## Sequential function calls
+  byDay <- group_by(flights, year, month, day)
+  byDayStats <- summarize(byDay, delay=mean(dep_delay, na.rm=TRUE))
+  byDayStats
+```
+
+__Note:__ `dplyr` only works with `tibbles`. To convert a standard data frame into a tibble use the typecast function ` tibble <- as_tibble(data.frame)
+
+# Piping
+Rather than saving intermediate results, i.e., `byDay` into a variable for subsequent operations, the intermediate results can be _piped_ directly into a subsequent function:
+```{r pipe1}
+  ## Piped function calls
+  byDayStats <- flights %>% group_by(year, month, day) %>% 
+                summarize(delay=mean(dep_delay, na.rm=TRUE))
+  byDayStats
+  ## Nested function call
+  summarize(group_by(flights,year, month, day),delay=mean(dep_delay, na.rm=TRUE))
+```
+
+The output of the previous function is automatically placed with `%>%` as first argument into the _piped_ functions. One can think of `%>%` meaning _then_. You get the pipe symbol with the short-cut keyboard command `Ctrl-Shift-M`.
+
+Note that functions need to be specifically designed to accept _piped_ arguments. Consequently, older `R` functions _cannot_ be pipped. For instance, functions in the package `ggplot2` don't support piping.
+
+Logically _piping_ strings nested function calls together: `x %>% f(y)` turns into `f(x, y)`, and `x %>% f(y) %>% g(z)` turns into `g(f(x, y), z)`.
+
+Analyse the following sequence of piped commands:
+```{r pipe2}
+delays <- flights %>% 
+  group_by(dest) %>% 
+  summarise(
+    count = n(),
+    dist = mean(distance, na.rm = TRUE),
+    delay = mean(arr_delay, na.rm = TRUE)
+  ) %>% 
+  filter(count > 20, dest != "HNL")
+
+ggplot(data = delays, mapping = aes(x = dist, y = delay)) +
+  geom_point(aes(size = count), alpha = 1/3) +
+  geom_smooth(se = FALSE)
+```
+
+## Missing Values
+Many function return a missing value if their input has missing values. To allow these function to skip an observations with missing values the parameter `na.rm=TRUE` needs to be set explicitly with a function:
+```{r Missing1}
+x <- c(2,4,3,6,NA,8,2,NA,3,7)
+x[x > 5]
+mean(x)               # return NA
+mean(x, na.rm=TRUE)   # returns mean of valid observations
+
+summarize(tibble(x), n1=n(), n2=sum(!is.na(x))) 
+
+```
+
+Alternatively, records with missing data can be explicitly filtered out:
+```{r Missing2}
+byDayStats <- flights %>% filter(!is.na(dep_delay)) %>%
+              group_by(year, month, day) %>% 
+              summarize(delay=mean(dep_delay))
+byDayStats
+```
+
+## Counts
+The count of valid observations is highly relevant. Summary measures, which are based on a larger number of observations, are statistically more stable. Remember, based on the _central limit theorem_, the standard error shrinks when the number of observations increases).
+```{r count}
+not_cancelled <- flights %>%                     # this tibble is used later
+  filter(!is.na(dep_delay), !is.na(arr_delay))
+delays <- flights %>% group_by(tailnum) %>%      # individual airplanes
+  summarize(arr_delayMean = mean(arr_delay, rm.na=TRUE),
+            n1 = n()) %>%
+  arrange(desc(arr_delayMean))
+delays            
+```
+
+## Further summary functions
+A whole array of functions can be used in the `summarize` verb:
+
+* a subset of observations can also be obtained with the syntax `x[x > 0]`
+* `mean( )` and `median( )`
+* `sd( )`, `IQR( )` and `mad( )` 
+* `min( )`, `max( )`, `first( )`, `last( )`, and `nth( )`
+* `n_distinct( )` give the number of unique observations
+* `count( )` provides the number of observations by factor levels
+
+`sum( )` and `mean( )` can also be applied on logical expressions:
+```{r summaryFct}
+x <- c(1,4,6,7,5,4,8,4,2,6)
+sum(x <= 4)      # number of observations <= 5
+mean(x <= 4)     # percent <= 5
+min_rank(x)      # assign ranks not breaking ties
+first(x)
+last(x)
+nth(x,3)
+n_distinct(x)
+```
+
+# Reverse grouping and ungrouping
+Grouping by multiple variable can be successively reversed:
+```{r successGroup}
+daily <- group_by(flights, year, month, day)
+
+(per_day <- summarize(daily, flights=n()))
+(per_month <- summarize(per_day, flights=sum(flights)))
+(per_year <- summarize(per_month, flights=sum(flights)))
+```
+
+Note: the syntax `(`_command_ `)` echos the output of the command onto the screen. It is simmilar to the print command.
+
+The `ungroup( )` function reverses grouping:
+```{r ungroup}
+daily %>% ungroup() %>% summarize(flights=n())
+```
+
+
+# Grouped _mutates_ and _filters_
+Grouping can not only be used with the `summarize( )` verb, but also with `mutate( )` or `filter( )`
+
+* Find the 10 worst delayed flights for each day:
+    ```{r}
+    flight_sml <- select(flights,
+                         year:day,
+                         ends_with("delay"),
+                         distance,
+                         air_time)
+    flight_sml %>% group_by(year, month, day) %>%
+      filter(rank(desc(arr_delay)) < 10)
+    ```
+* Find the most popular destinations with more than average 45 arrivals per day (number of flights greater than a threshold)
+    ```{r}
+    popular_dests <- flights %>% group_by(dest) %>% filter(n() > 45*365)
+    popular_dests
+    ```
+* Calculate per group metrics
+    ```{r}
+    popular_dests %>% filter(arr_delay > 0) %>%
+      mutate(prop_delay=arr_delay / sum(arr_delay)) %>%
+      select(year:day, dest, arr_delay, prop_delay)
+
+    ```
+
+# Discussion
+Elaborate on the _advantages_ and _disadvantages_ of piping operations in contrast to the standard sequential processing of data.
+
+The traditional way of processing data with R can be found in Spector's, 2008, monograph [Data Manipulation with R](https://utdallas.primo.exlibrisgroup.com/discovery/fulldisplay?docid=alma99145788001421&context=L&vid=01UT_DALLAS:UTDALMA&lang=en&search_scope=MyInst_and_CI&adaptor=Local%20Search%20Engine&tab=Everything&query=any,contains,Data%20Manipulation%20with%20R)
+
